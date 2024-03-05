@@ -542,14 +542,14 @@ static kmac_sca_error_t sha3_ujson_absorb(const uint8_t *msg, size_t msg_len) {
   if (fpga_mode == false) {
     // Start command. On the chip, we need to first issue a START command
     // before writing to the message FIFO.
-    sca_call_and_sleep(kmac_start_cmd, kIbexLoadHashPrefixKeySleepCycles);
+    sca_call_and_sleep_trigger(kmac_start_cmd, kIbexLoadHashPrefixKeySleepCycles);
   }
 
   // Write data to message FIFO.
   if (kmac_msg_write(msg, msg_len, NULL) != kmacScaOk) {
     return kmacScaAborted;
   }
-
+  
   if (fpga_mode) {
     // On the FPGA, start the SHA3 processing (this triggers the capture) and
     // go to sleep. Using the SecCmdDelay hardware parameter, the KMAC unit is
@@ -588,11 +588,11 @@ status_t handle_kmac_sca_single_absorb(ujson_t *uj) {
   }
 
   // Ungate the capture trigger signal and then start the operation.
-  sca_set_trigger_high();
+  //sca_set_trigger_high();
   if (sha3_ujson_absorb(uj_msg.msg, uj_msg.msg_length) != kmacScaOk) {
     return ABORTED();
   }
-  sca_set_trigger_low();
+  //sca_set_trigger_low();
 
   // Check KMAC has finished processing the message.
   kmac_msg_done();
@@ -674,11 +674,11 @@ status_t handle_kmac_sca_batch(ujson_t *uj) {
     kmac_reset();
     memcpy(kmac_key.share0, kmac_batch_keys[i], kKeyLength);
 
-    sca_set_trigger_high();
+    //sca_set_trigger_high();
     if (sha3_ujson_absorb(batch_messages[i], kMessageLength) != kmacScaOk) {
       return ABORTED();
     }
-    sca_set_trigger_low();
+    //sca_set_trigger_low();
 
     kmac_msg_done();
     if (kmac_get_digest(out, kDigestLength) != kmacScaOk) {

@@ -200,6 +200,16 @@ typedef void (*sca_callee)(void);
 void sca_call_and_sleep(sca_callee callee, uint32_t sleep_cycles);
 
 /**
+ * Raises the trigger, calls the given function and puts Ibex to sleep.
+ *
+ * Same as sca_call_and_sleep but additionally raises the SCA trigger.
+ *
+ * @param callee Function to call before putting Ibex to sleep.
+ * @param sleep_cycles Number of cycles to sleep.
+ */
+void sca_call_and_sleep_trigger(sca_callee callee, uint32_t sleep_cycles);
+
+/**
  * Seeds the software LFSR usable e.g. for key masking.
  *
  * This functions seeds the Galois XOR type LFSR with the provided seed value.

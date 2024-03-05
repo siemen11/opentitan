@@ -8,6 +8,7 @@
 #include "sw/device/lib/arch/device.h"
 #include "sw/device/lib/base/bitfield.h"
 #include "sw/device/lib/base/macros.h"
+#include "sw/device/lib/runtime/ibex.h"
 #include "sw/device/lib/dif/dif_clkmgr.h"
 #include "sw/device/lib/dif/dif_entropy_src.h"
 #include "sw/device/lib/dif/dif_gpio.h"
@@ -337,6 +338,38 @@ void sca_call_and_sleep(sca_callee callee, uint32_t sleep_cycles) {
       &clkmgr, CLKMGR_CLK_ENABLES_CLK_IO_DIV4_PERI_EN_BIT, kDifToggleEnabled));
 }
 
+void sca_call_and_sleep_trigger(sca_callee callee, uint32_t sleep_cycles) {
+  // Disable the IO_DIV4_PERI clock to reduce noise during the actual capture.
+  // This also disables the UART(s) and GPIO modules required for
+  // communication with the scope. Therefore, it has to be re-enabled after
+  // the capture.
+  dif_clkmgr_t clkmgr;
+  OT_DISCARD(dif_clkmgr_init(
+      mmio_region_from_addr(TOP_EARLGREY_CLKMGR_AON_BASE_ADDR), &clkmgr));
+
+  // Start timer to wake Ibex after the callee is done.
+  uint64_t current_time;
+  // Return values of below functions are ignored to improve capture
+  // performance.
+  OT_DISCARD(dif_rv_timer_counter_read(&timer, kRvTimerHart, &current_time));
+  OT_DISCARD(dif_rv_timer_arm(&timer, kRvTimerHart, kRvTimerComparator,
+                              current_time + sleep_cycles));
+  OT_DISCARD(dif_rv_timer_counter_set_enabled(&timer, kRvTimerHart,
+                                              kDifToggleEnabled));
+  sca_set_trigger_high();
+  //const uint64_t start_cycles = ibex_mcycle_read();
+  callee();
+
+  wait_for_interrupt();
+  //const uint64_t end_cycles = ibex_mcycle_read();
+  sca_set_trigger_low();
+  //LOG_ERROR("Cycles are %u", (uint32_t)(end_cycles - start_cycles));
+
+  // Re-enable IO_DIV4_PERI clock to resume communication with the scope.
+  OT_DISCARD(dif_clkmgr_gateable_clock_set_enabled(
+      &clkmgr, CLKMGR_CLK_ENABLES_CLK_IO_DIV4_PERI_EN_BIT, kDifToggleEnabled));
+}
+
 static uint32_t sca_lfsr_state_masking = 0xdeadbeef;
 static uint32_t sca_lfsr_state_order = 0x99999999;
 
@@ -345,7 +378,7 @@ void sca_seed_lfsr(uint32_t seed, sca_lfsr_context_t context) {
     sca_lfsr_state_masking = seed;
   }
   if (context == kScaLfsrOrder) {
-    sca_lfsr_state_masking = seed;
+    sca_lfsr_state_order = seed;
   }
 }
 

@@ -56,6 +56,7 @@ cc_library(
         "//sw/device/lib/base:bitfield",
         "//sw/device/lib/base:macros",
         "//sw/device/lib/dif:clkmgr",
+        "//sw/device/lib/runtime:ibex",
         "//sw/device/lib/dif:csrng",
         "//sw/device/lib/dif:edn",
         "//sw/device/lib/dif:entropy_src",
