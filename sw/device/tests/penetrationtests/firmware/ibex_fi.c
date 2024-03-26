@@ -107,6 +107,7 @@ static dif_flash_ctrl_device_info_t flash_info;
 // we can do the write/read test without the risk of clobbering data
 // used by the program.
 OT_SECTION(".data")
+
 static volatile uint32_t sram_main_buffer[256];
 static volatile uint32_t sram_main_buffer_large[4000];
 

@@ -31,6 +31,10 @@ static dif_kmac_t kmac;
 
 // Indicates whether the key manager is already configured for the test.
 static bool key_manager_init;
+// NOP macros.
+#define NOP1 "addi x0, x0, 0\n"
+#define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
+#define NOP100 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10
 
 // Buffer to allow the compiler to allocate a safe area in Main SRAM where
 // we can do the write/read test without the risk of clobbering data
