@@ -46,6 +46,13 @@ cc_library(
 )
 
 cc_library(
+    name = "hmac_sca_commands",
+    srcs = ["hmac_sca_commands.c"],
+    hdrs = ["hmac_sca_commands.h"],
+    deps = ["//sw/device/lib/ujson"],
+)
+
+cc_library(
     name = "ibex_fi_commands",
     srcs = ["ibex_fi_commands.c"],
     hdrs = ["ibex_fi_commands.h"],
