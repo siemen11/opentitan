@@ -112,7 +112,7 @@ status_t handle_crypto_fi_aes(ujson_t *uj) {
   crypto_fi_aes_mode_t uj_data;
   TRY(ujson_deserialize_crypto_fi_aes_mode_t(uj, &uj_data));
   // Clear registered alerts in alert handler.
-  uint32_t reg_alerts = sca_get_triggered_alerts();
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Write the key into the AES block. Set and unset the trigger when
   // key_trigger is true.
@@ -165,7 +165,9 @@ status_t handle_crypto_fi_aes(ujson_t *uj) {
   // Send the ciphertext and the alerts back to the host.
   crypto_fi_aes_ciphertext_t uj_output;
   memcpy(uj_output.ciphertext, ciphertext.data, 16);
-  uj_output.alerts = reg_alerts;
+  uj_output.alerts_1 = reg_alerts.alerts_1;
+  uj_output.alerts_2 = reg_alerts.alerts_2;
+  uj_output.alerts_3 = reg_alerts.alerts_3;
   RESP_OK(ujson_serialize_crypto_fi_aes_ciphertext_t, uj, &uj_output);
   return OK_STATUS();
 }
@@ -175,7 +177,7 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
   crypto_fi_kmac_mode_t uj_data;
   TRY(ujson_deserialize_crypto_fi_kmac_mode_t(uj, &uj_data));
   // Clear registered alerts in alert handler.
-  uint32_t reg_alerts = sca_get_triggered_alerts();
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Configure and write key to the KMAC block. Set and unset the trigger when
   // key_trigger is true.
@@ -220,7 +222,9 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
   // Send the first 8 bytes of the digest and the alerts back to the host.
   crypto_fi_kmac_digest_t uj_output;
   memcpy(uj_output.digest, (uint8_t *)digest, 8);
-  uj_output.alerts = reg_alerts;
+  uj_output.alerts_1 = reg_alerts.alerts_1;
+  uj_output.alerts_2 = reg_alerts.alerts_2;
+  uj_output.alerts_3 = reg_alerts.alerts_3;
   RESP_OK(ujson_serialize_crypto_fi_kmac_digest_t, uj, &uj_output);
   return OK_STATUS();
 }
