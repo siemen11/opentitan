@@ -177,6 +177,7 @@ cc_library(
     deps = [
         "//sw/device/lib/base:csr",
         "//sw/device/lib/dif:alert_handler",
+        "//sw/device/lib/dif:lc_ctrl",
         "//sw/device/lib/dif:rstmgr",
         "//sw/device/lib/dif:rv_core_ibex",
         "//sw/device/lib/dif:rv_plic",
@@ -184,6 +185,7 @@ cc_library(
         "//sw/device/lib/testing:rv_plic_testutils",
         "//sw/device/lib/testing/test_framework:ottf_main",
         "//sw/device/lib/ujson",
+        "//sw/device/tests/penetrationtests/json:sca_lib_commands",
     ],
 )
 
