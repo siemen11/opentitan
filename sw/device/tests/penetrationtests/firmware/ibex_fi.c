@@ -609,6 +609,183 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_ibex_fi_char_sram_write_static(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Get address of buffer located in SRAM.
+  uintptr_t sram_main_buffer_addr = (uintptr_t)&sram_main_buffer;
+  mmio_region_t sram_region_main_addr =
+      mmio_region_from_addr(sram_main_buffer_addr);
+
+  // Initialize SRAM region with inverse ref_values to avoid that data from a
+  // previous run are still in memory.
+  for (int i = 0; i < 64; i++) {
+    mmio_region_write32(sram_region_main_addr, i * (ptrdiff_t)sizeof(uint32_t),
+                        ~ref_values[0]);
+  }
+
+  // FI code target.
+  // Unrolled for easier fault injection characterization.
+  sca_set_trigger_high();
+  mmio_region_write32(sram_region_main_addr, 0 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 1 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 2 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 3 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 4 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 5 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 6 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 7 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 8 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 9 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 10 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 11 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 12 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 13 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 14 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 15 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 16 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 17 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 18 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 19 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 20 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 21 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 22 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 23 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 24 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 25 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 26 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 27 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 28 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 29 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 30 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 31 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 32 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 33 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 34 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 35 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 36 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 37 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 38 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 39 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 40 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 41 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 42 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 43 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 44 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 45 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 46 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 47 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 48 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 49 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 50 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 51 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 52 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 53 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 54 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 55 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 56 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 57 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 58 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 59 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 60 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 61 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 62 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  mmio_region_write32(sram_region_main_addr, 63 * (ptrdiff_t)sizeof(uint32_t),
+                      ref_values[0]);
+  sca_set_trigger_low();
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read back and compare against reference values.
+  uint32_t res_values[64];
+  uint32_t res = 0;
+  for (int i = 0; i < 64; i++) {
+    res_values[i] = mmio_region_read32(sram_region_main_addr,
+                                       i * (ptrdiff_t)sizeof(uint32_t));
+    if (res_values[i] != ref_values[0]) {
+      res |= 1;
+    }
+  }
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send res & ERR_STATUS to host.
+  ibex_fi_test_result_t uj_output;
+  uj_output.result = res;
+  uj_output.err_status = codes;
+  uj_output.alerts_1 = reg_alerts.alerts_1;
+  uj_output.alerts_2 = reg_alerts.alerts_2;
+  uj_output.alerts_3 = reg_alerts.alerts_3;
+  RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
 status_t handle_ibex_fi_char_sram_write(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
@@ -1138,6 +1315,8 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_char_unconditional_branch(uj);
     case kIbexFiSubcommandCharSramWrite:
       return handle_ibex_fi_char_sram_write(uj);
+    case kIbexFiSubcommandCharSramWriteStatic:
+      return handle_ibex_fi_char_sram_write_static(uj);
     case kIbexFiSubcommandCharSramRead:
       return handle_ibex_fi_char_sram_read(uj);
     case kIbexFiSubcommandCharSramStatic:

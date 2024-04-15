@@ -32,13 +32,6 @@ cc_library(
 )
 
 cc_library(
-    name = "hmac_sca_commands",
-    srcs = ["hmac_sca_commands.c"],
-    hdrs = ["hmac_sca_commands.h"],
-    eps = ["//sw/device/lib/ujson"],
-)
-
-cc_library(
     name = "crypto_fi_commands",
     srcs = ["crypto_fi_commands.c"],
     hdrs = ["crypto_fi_commands.h"],
