@@ -7,6 +7,7 @@
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/base/status.h"
 #include "sw/device/lib/crypto/drivers/keymgr.h"
+#include "sw/device/lib/dif/dif_rv_core_ibex.h"
 #include "sw/device/lib/runtime/log.h"
 #include "sw/device/lib/testing/entropy_testutils.h"
 #include "sw/device/lib/testing/keymgr_testutils.h"
@@ -19,6 +20,9 @@
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
 #include "otbn_regs.h"
+
+// Interface to Ibex.
+static dif_rv_core_ibex_t rv_core_ibex;
 
 // Indicates whether the load_integrity test is already initialized.
 static bool load_integrity_init;
@@ -83,7 +87,7 @@ static status_t clear_otbn(void) {
   TRY(otbn_dmem_sec_wipe());
   TRY(otbn_imem_sec_wipe());
 
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -91,11 +95,11 @@ static status_t clear_otbn(void) {
  *
  * @returns Error bits.
  */
-status_t read_otbn_err_bits(dif_otbn_err_bits_t *err_bits) {
+status_t read_otbn_err_bits(dif_otbn_err_bits_t *err_otbn) {
   dif_otbn_t otbn;
   TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
-  TRY(dif_otbn_get_err_bits(&otbn, err_bits));
-  return OK_STATUS(0);
+  TRY(dif_otbn_get_err_bits(&otbn, err_otbn));
+  return OK_STATUS();
 }
 
 /**
@@ -107,7 +111,7 @@ status_t read_otbn_load_checksum(uint32_t *checksum) {
   dif_otbn_t otbn;
   TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
   TRY(dif_otbn_get_load_checksum(&otbn, checksum));
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -117,7 +121,7 @@ status_t clear_otbn_load_checksum(void) {
   dif_otbn_t otbn;
   TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
   TRY(dif_otbn_clear_load_checksum(&otbn));
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -130,6 +134,9 @@ status_t clear_otbn_load_checksum(void) {
  * @param uj The received uJSON data.
  */
 status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
   if (!key_sideloading_init) {
     // Setup keymanager for sideloading key into OTBN.
     otbn_load_app(kOtbnAppKeySideload);
@@ -142,6 +149,8 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   otbn_execute();
   otbn_busy_wait_for_done();
   sca_set_trigger_low();
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
 
   // Read loop counter from OTBN data memory.
   uint32_t key_share_0_l, key_share_0_l_ref;
@@ -154,8 +163,12 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   otbn_dmem_read(1, kOtbnAppKeySideloadks1h, &key_share_1_h);
 
   // Read ERR_STATUS register from OTBN.
-  dif_otbn_err_bits_t err_bits;
-  read_otbn_err_bits(&err_bits);
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
   // Set error value to 1 if key sideloading failed.
   uint32_t res = 0;
@@ -190,9 +203,11 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   // Send result & ERR_STATUS to host.
   otbn_fi_result_t uj_output;
   uj_output.result = res;
-  uj_output.err_status = err_bits;
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_result_t, uj, &uj_output);
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -211,6 +226,9 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
  * @param uj The received uJSON data.
  */
 status_t handle_otbn_fi_load_integrity(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
   if (!load_integrity_init) {
     // Load the OTBN app and read the load checksum without FI to retrieve
     // reference value.
@@ -226,6 +244,8 @@ status_t handle_otbn_fi_load_integrity(ujson_t *uj) {
   sca_set_trigger_high();
   otbn_load_app(kOtbnAppLoadIntegrity);
   sca_set_trigger_low();
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
 
   // Read back checksum.
   uint32_t load_checksum;
@@ -253,8 +273,12 @@ status_t handle_otbn_fi_load_integrity(ujson_t *uj) {
   }
 
   // Read ERR_STATUS register from OTBN.
-  dif_otbn_err_bits_t err_bits;
-  read_otbn_err_bits(&err_bits);
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
   // Clear OTBN memory.
   TRY(clear_otbn());
@@ -262,9 +286,11 @@ status_t handle_otbn_fi_load_integrity(ujson_t *uj) {
   // Send result & ERR_STATUS to host.
   otbn_fi_result_t uj_output;
   uj_output.result = res;
-  uj_output.err_status = err_bits;
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_result_t, uj, &uj_output);
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -308,8 +334,12 @@ status_t handle_otbn_fi_char_hardware_dmem_op_loop(ujson_t *uj) {
   otbn_dmem_read(1, kOtbnAppCharHardwareDmemOpLoopLC, &loop_counter);
 
   // Read ERR_STATUS register from OTBN.
-  dif_otbn_err_bits_t err_bits;
-  read_otbn_err_bits(&err_bits);
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
   // Clear OTBN memory.
   TRY(clear_otbn());
@@ -317,10 +347,11 @@ status_t handle_otbn_fi_char_hardware_dmem_op_loop(ujson_t *uj) {
   // Send loop counter & ERR_STATUS to host.
   otbn_fi_loop_counter_t uj_output;
   uj_output.loop_counter = loop_counter;
-  uj_output.err_status = err_bits;
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_loop_counter_t, uj, &uj_output);
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -363,8 +394,12 @@ status_t handle_otbn_fi_char_hardware_reg_op_loop(ujson_t *uj) {
   otbn_dmem_read(1, kOtbnAppCharHardwareRegOpLoopLC, &loop_counter);
 
   // Read ERR_STATUS register from OTBN.
-  dif_otbn_err_bits_t err_bits;
-  read_otbn_err_bits(&err_bits);
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
   // Clear OTBN memory.
   TRY(clear_otbn());
@@ -372,10 +407,11 @@ status_t handle_otbn_fi_char_hardware_reg_op_loop(ujson_t *uj) {
   // Send loop counter & ERR_STATUS to host.
   otbn_fi_loop_counter_t uj_output;
   uj_output.loop_counter = loop_counter;
-  uj_output.err_status = err_bits;
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_loop_counter_t, uj, &uj_output);
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -420,8 +456,12 @@ status_t handle_otbn_fi_char_unrolled_dmem_op_loop(ujson_t *uj) {
   otbn_dmem_read(1, kOtbnAppCharUnrolledDmemOpLoopLC, &loop_counter);
 
   // Read ERR_STATUS register from OTBN.
-  dif_otbn_err_bits_t err_bits;
-  read_otbn_err_bits(&err_bits);
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
   // Clear OTBN memory.
   TRY(clear_otbn());
@@ -429,10 +469,11 @@ status_t handle_otbn_fi_char_unrolled_dmem_op_loop(ujson_t *uj) {
   // Send loop counter & ERR_STATUS to host.
   otbn_fi_loop_counter_t uj_output;
   uj_output.loop_counter = loop_counter;
-  uj_output.err_status = err_bits;
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_loop_counter_t, uj, &uj_output);
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -475,8 +516,12 @@ status_t handle_otbn_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   otbn_dmem_read(1, kOtbnAppCharUnrolledRegOpLoopLC, &loop_counter);
 
   // Read ERR_STATUS register from OTBN.
-  dif_otbn_err_bits_t err_bits;
-  read_otbn_err_bits(&err_bits);
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
   // Clear OTBN memory.
   TRY(clear_otbn());
@@ -484,10 +529,11 @@ status_t handle_otbn_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   // Send loop counter & ERR_STATUS to host.
   otbn_fi_loop_counter_t uj_output;
   uj_output.loop_counter = loop_counter;
-  uj_output.err_status = err_bits;
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_loop_counter_t, uj, &uj_output);
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -503,7 +549,7 @@ status_t handle_otbn_fi_init_keymgr(ujson_t *uj) {
   TRY(keymgr_testutils_advance_state(&keymgr, &kOwnerRootKeyParams));
   TRY(keymgr_testutils_check_state(&keymgr, kDifKeymgrStateOwnerRootKey));
 
-  return OK_STATUS(0);
+  return OK_STATUS();
 }
 
 /**
@@ -524,6 +570,11 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
            kScaPeripheralIoDiv4 | kScaPeripheralEdn | kScaPeripheralCsrng |
                kScaPeripheralEntropy | kScaPeripheralAes | kScaPeripheralHmac |
                kScaPeripheralKmac | kScaPeripheralOtbn);
+
+  // Configure Ibex to allow reading ERR_STATUS register.
+  TRY(dif_rv_core_ibex_init(
+      mmio_region_from_addr(TOP_EARLGREY_RV_CORE_IBEX_CFG_BASE_ADDR),
+      &rv_core_ibex));
 
   // Configure the alert handler. Alerts triggered by IP blocks are captured
   // and reported to the test.
@@ -576,5 +627,5 @@ status_t handle_otbn_fi(ujson_t *uj) {
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
   }
-  return OK_STATUS(0);
+  return OK_STATUS();
 }

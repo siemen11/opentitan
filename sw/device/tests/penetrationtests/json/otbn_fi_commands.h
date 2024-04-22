@@ -24,13 +24,16 @@ UJSON_SERDE_ENUM(OtbnFiSubcommand, otbn_fi_subcommand_t, OTBNFI_SUBCOMMAND);
 
 #define OTBNFI_LOOP_COUNTER_OUTPUT(field, string) \
     field(loop_counter, uint32_t) \
-    field(err_status, uint32_t) \
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiLoopCounterOutput, otbn_fi_loop_counter_t, OTBNFI_LOOP_COUNTER_OUTPUT);
 
 #define OTBNFI_RESULT_OUTPUT(field, string) \
     field(result, uint32_t) \
-    field(err_status, uint32_t)
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
+    field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiResultOutput, otbn_fi_result_t, OTBNFI_RESULT_OUTPUT);
 
 // clang-format on
