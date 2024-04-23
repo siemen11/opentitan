@@ -9,6 +9,51 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * otp_ctrl.write_lock command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Add 10 NOPs to delay the trigger.
+ * - Try writing to the locked Unlock Token field in the Secret0 partition.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_otp_write_lock(ujson_t *uj);
+
+/**
+ * otp_ctrl.read_lock command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Lock the read for VENDOR_TEST, CREATOR_SW_CFG, and OWNER_SW_CFG partition
+ * - Add 10 NOPs to delay the trigger.
+ * - Read VENDOR_TEST, CREATOR_SW_CFG, and OWNER_SW_CFG partition from OTP
+ * - Compare against reference values
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_otp_read_lock(ujson_t *uj);
+
+/**
+ * otp_ctrl.data_read command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Add 10 NOPs to delay the trigger.
+ * - Read VENDOR_TEST, CREATOR_SW_CFG, and OWNER_SW_CFG partition from OTP
+ * - Compare against reference values
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_otp_data_read(ujson_t *uj);
+
+/**
  * ibex.fi.address_translation command handler.
  *
  * This FI penetration tests executes the following instructions:
@@ -170,7 +215,7 @@ status_t handle_ibex_fi_char_sram_static(ujson_t *uj);
 status_t handle_ibex_fi_char_sram_read(ujson_t *uj);
 
 /**
- * ibex.fi.char.sram_write_static command handler.
+ * ibex.fi.char.sram_write_static_unrolled command handler.
  *
  * This FI penetration tests executes the following instructions:
  * - Set the trigger.
@@ -186,7 +231,7 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj);
  * @param uj An initialized uJSON context.
  * @return OK or error.
  */
-status_t handle_ibex_fi_char_sram_write_static(ujson_t *uj);
+status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj);
 
 /**
  * ibex.fi.char.sram_write command handler.

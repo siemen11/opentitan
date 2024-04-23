@@ -22,7 +22,7 @@ extern "C" {
     value(_, CharCondBranch) \
     value(_, CharUncondBranch) \
     value(_, CharSramWrite) \
-    value(_, CharSramWriteStatic) \
+    value(_, CharSramWriteStaticUnrolled) \
     value(_, CharSramRead) \
     value(_, CharSramStatic) \
     value(_, CharFlashWrite) \
@@ -30,7 +30,10 @@ extern "C" {
     value(_, CharCsrRead) \
     value(_, CharCsrWrite) \
     value(_, AddressTranslationCfg) \
-    value(_, AddressTranslation)
+    value(_, AddressTranslation) \
+    value(_, OtpDataRead) \
+    value(_, OtpReadLock) \
+    value(_, OtpWriteLock)
 UJSON_SERDE_ENUM(IbexFiSubcommand, ibex_fi_subcommand_t, IBEXFI_SUBCOMMAND);
 
 #define IBEXFI_TEST_RESULT(field, string) \

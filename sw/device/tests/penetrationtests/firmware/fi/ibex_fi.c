@@ -9,20 +9,24 @@
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/base/status.h"
 #include "sw/device/lib/dif/dif_flash_ctrl.h"
+#include "sw/device/lib/dif/dif_otp_ctrl.h"
 #include "sw/device/lib/dif/dif_rv_core_ibex.h"
 #include "sw/device/lib/dif/dif_sram_ctrl.h"
 #include "sw/device/lib/runtime/log.h"
 #include "sw/device/lib/testing/flash_ctrl_testutils.h"
+#include "sw/device/lib/testing/otp_ctrl_testutils.h"
 #include "sw/device/lib/testing/sram_ctrl_testutils.h"
 #include "sw/device/lib/testing/test_framework/ottf_test_config.h"
 #include "sw/device/lib/testing/test_framework/ujson_ottf.h"
 #include "sw/device/lib/ujson/ujson.h"
 #include "sw/device/sca/lib/sca.h"
 #include "sw/device/silicon_creator/lib/drivers/retention_sram.h"
+#include "sw/device/silicon_creator/manuf/lib/otp_fields.h"
 #include "sw/device/tests/penetrationtests/firmware/lib/sca_lib.h"
 #include "sw/device/tests/penetrationtests/json/ibex_fi_commands.h"
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+#include "otp_ctrl_regs.h"
 
 // A function which takes an uint32_t as its only argument.
 typedef uint32_t (*str_fn_t)(uint32_t);
@@ -37,12 +41,33 @@ static str_fn_t increment_100x1_remapped = (str_fn_t)increment_100x1;
 // Interface to Ibex.
 static dif_rv_core_ibex_t rv_core_ibex;
 
+// Interface to OTP.
+static dif_otp_ctrl_t otp;
+
 // Indicates whether flash already was initialized for the test or not.
 static bool flash_init;
 // Indicates whether flash content is valid or not.
 static bool flash_data_valid;
 // Indicates whether ret SRAM already was initialized for the test or not.
 static bool sram_ret_init;
+// Indicates whether the otp arrays hold the valid reference values read from
+// the OTP partitions.
+static bool otp_ref_init;
+
+// Arrays holding the reference data read from the OTP VENDOR_TEST,
+// CREATOR_SW_CFG, and OWNER_SW_CFG partitions.
+uint32_t
+    otp_data_read_ref_vendor_test[(OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+                                   OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+                                  sizeof(uint32_t)];
+uint32_t otp_data_read_ref_creator_sw_cfg
+    [(OTP_CTRL_PARAM_CREATOR_SW_CFG_SIZE -
+      OTP_CTRL_PARAM_CREATOR_SW_CFG_DIGEST_SIZE) /
+     sizeof(uint32_t)];
+uint32_t
+    otp_data_read_ref_owner_sw_cfg[(OTP_CTRL_PARAM_OWNER_SW_CFG_SIZE -
+                                    OTP_CTRL_PARAM_OWNER_SW_CFG_DIGEST_SIZE) /
+                                   sizeof(uint32_t)];
 
 // Make sure that this function does not get optimized by the compiler.
 uint32_t increment_counter(uint32_t counter) __attribute__((optnone)) {
@@ -114,6 +139,169 @@ static dif_flash_ctrl_device_info_t flash_info;
 OT_SECTION(".data")
 
 static volatile uint32_t sram_main_buffer[256];
+
+status_t handle_ibex_fi_otp_write_lock(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  uint64_t faulty_token[kSecret0TestUnlockTokenSizeIn64BitWords];
+  for (size_t i = 0; i < kSecret0TestUnlockTokenSizeIn64BitWords; i++) {
+    faulty_token[i] = 0xdeadbeef;
+  }
+  sca_set_trigger_high();
+  asm volatile(NOP10);
+  TRY(otp_ctrl_testutils_dai_write64(
+      &otp, kDifOtpCtrlPartitionSecret0, kSecret0TestUnlockTokenOffset,
+      faulty_token, kSecret0TestUnlockTokenSizeIn64BitWords));
+  asm volatile(NOP10);
+  sca_set_trigger_low();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send res & ERR_STATUS to host.
+  ibex_fi_test_result_t uj_output;
+  uj_output.result =
+      0;  // Writing to the locked OTP partition crashes the chip.
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+static status_t init_ref_otp_data(void) {
+  // Fetch faulty-free reference values from OTP paritions.
+  if (!otp_ref_init) {
+    // Read VENDOR_TEST partition.
+    TRY(otp_ctrl_testutils_dai_read32_array(
+        &otp, kDifOtpCtrlPartitionVendorTest, 0, otp_data_read_ref_vendor_test,
+        (OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+         OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+            sizeof(uint32_t)));
+
+    // Read CREATOR_SW_CFG partition.
+    TRY(otp_ctrl_testutils_dai_read32_array(
+        &otp, kDifOtpCtrlPartitionCreatorSwCfg, 0,
+        otp_data_read_ref_creator_sw_cfg,
+        (OTP_CTRL_PARAM_CREATOR_SW_CFG_SIZE -
+         OTP_CTRL_PARAM_CREATOR_SW_CFG_DIGEST_SIZE) /
+            sizeof(uint32_t)));
+
+    // READ OWNER_SW_CFG partition.
+    TRY(otp_ctrl_testutils_dai_read32_array(
+        &otp, kDifOtpCtrlPartitionOwnerSwCfg, 0, otp_data_read_ref_owner_sw_cfg,
+        (OTP_CTRL_PARAM_OWNER_SW_CFG_SIZE -
+         OTP_CTRL_PARAM_OWNER_SW_CFG_DIGEST_SIZE) /
+            sizeof(uint32_t)));
+    otp_ref_init = true;
+  }
+  return OK_STATUS();
+}
+
+static status_t read_otp_partitions(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  uint32_t
+      otp_data_read_res_vendor_test[(OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+                                     OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+                                    sizeof(uint32_t)];
+  uint32_t otp_data_read_res_creator_sw_cfg
+      [(OTP_CTRL_PARAM_CREATOR_SW_CFG_SIZE -
+        OTP_CTRL_PARAM_CREATOR_SW_CFG_DIGEST_SIZE) /
+       sizeof(uint32_t)];
+  uint32_t
+      otp_data_read_res_owner_sw_cfg[(OTP_CTRL_PARAM_OWNER_SW_CFG_SIZE -
+                                      OTP_CTRL_PARAM_OWNER_SW_CFG_DIGEST_SIZE) /
+                                     sizeof(uint32_t)];
+
+  sca_set_trigger_high();
+  asm volatile(NOP10);
+  TRY(otp_ctrl_testutils_dai_read32_array(
+      &otp, kDifOtpCtrlPartitionVendorTest, 0, otp_data_read_res_vendor_test,
+      (OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+       OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+          sizeof(uint32_t)));
+  TRY(otp_ctrl_testutils_dai_read32_array(
+      &otp, kDifOtpCtrlPartitionCreatorSwCfg, 0,
+      otp_data_read_res_creator_sw_cfg,
+      (OTP_CTRL_PARAM_CREATOR_SW_CFG_SIZE -
+       OTP_CTRL_PARAM_CREATOR_SW_CFG_DIGEST_SIZE) /
+          sizeof(uint32_t)));
+  TRY(otp_ctrl_testutils_dai_read32_array(
+      &otp, kDifOtpCtrlPartitionOwnerSwCfg, 0, otp_data_read_res_owner_sw_cfg,
+      (OTP_CTRL_PARAM_OWNER_SW_CFG_SIZE -
+       OTP_CTRL_PARAM_OWNER_SW_CFG_DIGEST_SIZE) /
+          sizeof(uint32_t)));
+  asm volatile(NOP10);
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Detect potential mismatch caused by faults.
+  uint32_t res = 0;
+  for (size_t i = 0; i < ((OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+                           OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+                          sizeof(uint32_t));
+       i++) {
+    if (otp_data_read_ref_vendor_test[i] != otp_data_read_res_vendor_test[i]) {
+      res |= 1;
+    }
+  }
+
+  for (size_t i = 0; i < ((OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+                           OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+                          sizeof(uint32_t));
+       i++) {
+    if (otp_data_read_ref_creator_sw_cfg[i] !=
+        otp_data_read_res_creator_sw_cfg[i]) {
+      res |= 2;
+    }
+  }
+
+  for (size_t i = 0; i < ((OTP_CTRL_PARAM_VENDOR_TEST_SIZE -
+                           OTP_CTRL_PARAM_VENDOR_TEST_DIGEST_SIZE) /
+                          sizeof(uint32_t));
+       i++) {
+    if (otp_data_read_ref_owner_sw_cfg[i] !=
+        otp_data_read_res_owner_sw_cfg[i]) {
+      res |= 4;
+    }
+  }
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send res & ERR_STATUS to host.
+  ibex_fi_test_result_t uj_output;
+  uj_output.result = res;
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_otp_read_lock(ujson_t *uj) {
+  TRY(init_ref_otp_data());
+  TRY(dif_otp_ctrl_lock_reading(&otp, kDifOtpCtrlPartitionVendorTest));
+  TRY(dif_otp_ctrl_lock_reading(&otp, kDifOtpCtrlPartitionCreatorSwCfg));
+  TRY(dif_otp_ctrl_lock_reading(&otp, kDifOtpCtrlPartitionOwnerSwCfg));
+
+  TRY(read_otp_partitions(uj));
+
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_otp_data_read(ujson_t *uj) {
+  TRY(init_ref_otp_data());
+  TRY(read_otp_partitions(uj));
+  return OK_STATUS();
+}
 
 status_t handle_ibex_fi_address_translation(ujson_t *uj) {
   // Clear registered alerts in alert handler.
@@ -634,7 +822,7 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   return OK_STATUS();
 }
 
-status_t handle_ibex_fi_char_sram_write_static(ujson_t *uj) {
+status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -1280,6 +1468,12 @@ status_t handle_ibex_fi_init(ujson_t *uj) {
       &flash, mmio_region_from_addr(TOP_EARLGREY_FLASH_CTRL_CORE_BASE_ADDR)));
   TRY(flash_ctrl_testutils_wait_for_init(&flash));
 
+  LOG_INFO("before otp init");
+
+  // Init OTP.
+  TRY(dif_otp_ctrl_init(
+      mmio_region_from_addr(TOP_EARLGREY_OTP_CTRL_CORE_BASE_ADDR), &otp));
+
   // Configure Ibex to allow reading ERR_STATUS register.
   TRY(dif_rv_core_ibex_init(
       mmio_region_from_addr(TOP_EARLGREY_RV_CORE_IBEX_CFG_BASE_ADDR),
@@ -1295,6 +1489,9 @@ status_t handle_ibex_fi_init(ujson_t *uj) {
   flash_data_valid = false;
   // Initialize retention SRAM.
   sram_ret_init = false;
+  // Fetch reference values from OTP before OTP tests.
+  otp_ref_init = false;
+
   return OK_STATUS();
 }
 
@@ -1322,8 +1519,8 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_char_unconditional_branch(uj);
     case kIbexFiSubcommandCharSramWrite:
       return handle_ibex_fi_char_sram_write(uj);
-    case kIbexFiSubcommandCharSramWriteStatic:
-      return handle_ibex_fi_char_sram_write_static(uj);
+    case kIbexFiSubcommandCharSramWriteStaticUnrolled:
+      return handle_ibex_fi_char_sram_write_static_unrolled(uj);
     case kIbexFiSubcommandCharSramRead:
       return handle_ibex_fi_char_sram_read(uj);
     case kIbexFiSubcommandCharSramStatic:
@@ -1340,6 +1537,12 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_address_translation_config(uj);
     case kIbexFiSubcommandAddressTranslation:
       return handle_ibex_fi_address_translation(uj);
+    case kIbexFiSubcommandOtpDataRead:
+      return handle_ibex_fi_otp_data_read(uj);
+    case kIbexFiSubcommandOtpReadLock:
+      return handle_ibex_fi_otp_read_lock(uj);
+    case kIbexFiSubcommandOtpWriteLock:
+      return handle_ibex_fi_otp_write_lock(uj);
     default:
       LOG_ERROR("Unrecognized IBEX FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
