@@ -997,107 +997,136 @@ status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
   return OK_STATUS();
 }
 
-status_t handle_ibex_fi_char_sram_write_read(ujson_t *uj) {
+status_t handle_ibex_fi_char_sram_write_read(ujson_t *uj)
+    __attribute__((optnone)) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
-  size_t max_value = 32;
+  // Initialize SRAM region with inverse reference value.
+  sram_main_buffer[0] = ~ref_values[0];
 
-  // Initialize SRAM region with inverse ref_values to avoid that data from a
-  // previous run is still in memory. Init res_values with ref_values.
-  uint32_t res_values[max_value];
-  for (size_t i = 0; i < max_value; i++) {
-    sram_main_buffer[i] = ~ref_values[i];
-    res_values[i] = ref_values[i];
-  }
+  // Init x5, x6, x6 with the reference values.
+  asm volatile("li x5, %0" : : "i"(ref_values[0]));
+  asm volatile("li x6, %0" : : "i"(ref_values[1]));
+  asm volatile("li x7, %0" : : "i"(ref_values[2]));
 
   sca_set_trigger_high();
   asm volatile(NOP10);
-  sram_main_buffer[0] = res_values[0];
-  res_values[0] = sram_main_buffer[0];
-  sram_main_buffer[1] = res_values[1];
-  res_values[1] = sram_main_buffer[1];
-  sram_main_buffer[2] = res_values[2];
-  res_values[2] = sram_main_buffer[2];
-  sram_main_buffer[3] = res_values[3];
-  res_values[3] = sram_main_buffer[3];
-  sram_main_buffer[4] = res_values[4];
-  res_values[4] = sram_main_buffer[4];
-  sram_main_buffer[5] = res_values[5];
-  res_values[5] = sram_main_buffer[5];
-  sram_main_buffer[6] = res_values[6];
-  res_values[6] = sram_main_buffer[6];
-  sram_main_buffer[7] = res_values[7];
-  res_values[7] = sram_main_buffer[7];
-  sram_main_buffer[8] = res_values[8];
-  res_values[8] = sram_main_buffer[8];
-  sram_main_buffer[9] = res_values[9];
-  res_values[9] = sram_main_buffer[9];
-  sram_main_buffer[10] = res_values[10];
-  res_values[10] = sram_main_buffer[10];
-  sram_main_buffer[11] = res_values[11];
-  res_values[11] = sram_main_buffer[11];
-  sram_main_buffer[12] = res_values[12];
-  res_values[12] = sram_main_buffer[12];
-  sram_main_buffer[13] = res_values[13];
-  res_values[13] = sram_main_buffer[13];
-  sram_main_buffer[14] = res_values[14];
-  res_values[14] = sram_main_buffer[14];
-  sram_main_buffer[15] = res_values[15];
-  res_values[15] = sram_main_buffer[15];
-  sram_main_buffer[16] = res_values[16];
-  res_values[16] = sram_main_buffer[16];
-  sram_main_buffer[17] = res_values[17];
-  res_values[17] = sram_main_buffer[17];
-  sram_main_buffer[18] = res_values[18];
-  res_values[18] = sram_main_buffer[18];
-  sram_main_buffer[19] = res_values[19];
-  res_values[19] = sram_main_buffer[19];
-  sram_main_buffer[20] = res_values[20];
-  res_values[20] = sram_main_buffer[20];
-  sram_main_buffer[21] = res_values[21];
-  res_values[21] = sram_main_buffer[21];
-  sram_main_buffer[22] = res_values[22];
-  res_values[22] = sram_main_buffer[22];
-  sram_main_buffer[23] = res_values[23];
-  res_values[23] = sram_main_buffer[23];
-  sram_main_buffer[24] = res_values[24];
-  res_values[24] = sram_main_buffer[24];
-  sram_main_buffer[25] = res_values[25];
-  res_values[25] = sram_main_buffer[25];
-  sram_main_buffer[26] = res_values[26];
-  res_values[26] = sram_main_buffer[26];
-  sram_main_buffer[27] = res_values[27];
-  res_values[27] = sram_main_buffer[27];
-  sram_main_buffer[28] = res_values[28];
-  res_values[28] = sram_main_buffer[28];
-  sram_main_buffer[29] = res_values[29];
-  res_values[29] = sram_main_buffer[29];
-  sram_main_buffer[30] = res_values[30];
-  res_values[30] = sram_main_buffer[30];
-  sram_main_buffer[31] = res_values[31];
-  res_values[31] = sram_main_buffer[31];
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
   asm volatile(NOP10);
   sca_set_trigger_low();
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
+  uint32_t res_values[3];
+  asm volatile("mv %0, x5" : "=r"(res_values[0]));
+  asm volatile("mv %0, x6" : "=r"(res_values[1]));
+  asm volatile("mv %0, x7" : "=r"(res_values[2]));
+
   // Compare against reference values.
   ibex_fi_faulty_addresses_data_t uj_output;
   memset(uj_output.addresses, 0, sizeof(uj_output.addresses));
   memset(uj_output.data, 0, sizeof(uj_output.data));
-  int faulty_address_pos = 0;
 
-  for (uint32_t addr = 0; addr < max_value; addr++) {
+  for (uint32_t addr = 0; addr < 3; addr++) {
     if (res_values[addr] != ref_values[addr]) {
-      uj_output.addresses[faulty_address_pos] = addr;
-      uj_output.data[faulty_address_pos] = res_values[addr];
-      faulty_address_pos++;
-      // Currently, we register only up to 8 faulty FLASH positions. If there
-      // are more, we overwrite the addresses array.
-      if (faulty_address_pos > 7) {
-        faulty_address_pos = 0;
-      }
+      uj_output.addresses[addr] = (uint32_t)&sram_main_buffer[0];
+      uj_output.data[addr] = res_values[addr];
     }
   }
 
@@ -1582,8 +1611,6 @@ status_t handle_ibex_fi_init(ujson_t *uj) {
   TRY(dif_flash_ctrl_init_state(
       &flash, mmio_region_from_addr(TOP_EARLGREY_FLASH_CTRL_CORE_BASE_ADDR)));
   TRY(flash_ctrl_testutils_wait_for_init(&flash));
-
-  LOG_INFO("before otp init");
 
   // Init OTP.
   TRY(dif_otp_ctrl_init(

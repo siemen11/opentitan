@@ -239,9 +239,13 @@ status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj);
  * This FI penetration tests executes the following instructions:
  * - Set the trigger.
  * - Add 10 NOPs to delay the trigger
- * - Do 32 times:
- *  - Write value to SRAM address
- *  - Read back value from SRAM address
+ * - Do 16 times:
+ *  - sw t0, 0(SRAM_ADDR)
+ *  - lw t0, 0(SRAM_ADDR)
+ *  - sw t1, 0(SRAM_ADDR)
+ *  - lw t1, 0(SRAM_ADDR)
+ *  - sw t2, 0(SRAM_ADDR)
+ *  - lw t2, 0(SRAM_ADDR)
  * - Unset the trigger.
  * - Read back values and compare.
  * - Return the values over UART.
