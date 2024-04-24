@@ -70,10 +70,12 @@ uint32_t
                                    sizeof(uint32_t)];
 
 // Make sure that this function does not get optimized by the compiler.
-uint32_t increment_counter(uint32_t counter) __attribute__((optnone)) {
-  uint32_t return_value = counter + 1;
-  return return_value;
+void increment_counter(void) __attribute__((optnone)) {
+  asm volatile("addi x5, x5, 1");
 }
+
+// Cond. branch macro.
+#define CONDBRANCH() "bgt x5, x6, endfitestfaulty\n"
 
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
@@ -1198,107 +1200,42 @@ status_t handle_ibex_fi_char_unconditional_branch(ujson_t *uj) {
   // FI code target.
   uint32_t result = 0;
   sca_set_trigger_high();
+  // Init x5 register we are using for the increment.
+  asm volatile(INITX5);
+  // Delay the trigger.
   asm volatile(NOP10);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
-  result = increment_counter(result);
+  // Attack target.
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("jal ra, increment_counter");
+  asm volatile("mv %0, x5" : "=r"(result));
   sca_set_trigger_low();
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
@@ -1321,18 +1258,54 @@ status_t handle_ibex_fi_char_conditional_branch(ujson_t *uj)
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
+  uint32_t result1 = 0;
+  uint32_t result2 = 0;
+
   // FI code target.
-  uint32_t branch_if_ = 1;
-  uint32_t branch_else = 0;
   sca_set_trigger_high();
+  asm volatile("addi x5, x0, 0xaf");
+  asm volatile("addi x6, x0, 0xef");
   asm volatile(NOP10);
-  for (int i = 0; i < 10000; i++) {
-    if (branch_if_ > 0) {
-      branch_if_++;
-    } else {
-      branch_else += 10;
-    }
-  }
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile(CONDBRANCH());
+  asm volatile("mv %0, x5" : "=r"(result1));
+  asm volatile("mv %0, x6" : "=r"(result2));
+  asm volatile("beq x0, x0, endfitest");
+  asm volatile(
+      "endfitestfaulty:\n"
+      "addi x5, x0, 0x11\n"
+      "addi x6, x0, 0x22");
+  asm volatile("mv %0, x5" : "=r"(result1));
+  asm volatile("mv %0, x6" : "=r"(result2));
+  asm volatile("endfitest:\n");
   sca_set_trigger_low();
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
@@ -1343,8 +1316,8 @@ status_t handle_ibex_fi_char_conditional_branch(ujson_t *uj)
 
   // Send loop counters & ERR_STATUS to host.
   ibex_fi_test_result_mult_t uj_output;
-  uj_output.result1 = branch_if_;
-  uj_output.result2 = branch_else;
+  uj_output.result1 = result1;
+  uj_output.result2 = result2;
   uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_ibex_fi_test_result_mult_t, uj, &uj_output);
