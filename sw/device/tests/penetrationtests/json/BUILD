@@ -40,6 +40,13 @@ cc_library(
 )
 
 cc_library(
+    name = "edn_sca_commands",
+    srcs = ["edn_sca_commands.c"],
+    hdrs = ["edn_sca_commands.h"],
+    deps = ["//sw/device/lib/ujson"],
+)
+
+cc_library(
     name = "hmac_sca_commands",
     srcs = ["hmac_sca_commands.c"],
     hdrs = ["hmac_sca_commands.h"],
