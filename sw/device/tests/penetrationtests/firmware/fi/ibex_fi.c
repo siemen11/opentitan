@@ -147,6 +147,27 @@ OT_SECTION(".data")
 
 static volatile uint32_t sram_main_buffer[256];
 
+// Init temporary registers t0...t6 with given value.
+static inline void init_temp_regs(uint32_t value) {
+  asm volatile("li x5, %0" : : "i"(value));
+  asm volatile("li x6, %0" : : "i"(value));
+  asm volatile("li x7, %0" : : "i"(value));
+  asm volatile("li x28, %0" : : "i"(value));
+  asm volatile("li x29, %0" : : "i"(value));
+  asm volatile("li x30, %0" : : "i"(value));
+}
+
+// Read back values fromo temporary registers t0...t0 into buffer.
+static inline void read_temp_regs(uint32_t buffer[]) {
+  asm volatile("mv %0, x5" : "=r"(buffer[0]));
+  asm volatile("mv %0, x6" : "=r"(buffer[1]));
+  asm volatile("mv %0, x7" : "=r"(buffer[2]));
+  asm volatile("mv %0, x28" : "=r"(buffer[3]));
+  asm volatile("mv %0, x29" : "=r"(buffer[4]));
+  asm volatile("mv %0, x30" : "=r"(buffer[5]));
+  asm volatile("mv %0, x31" : "=r"(buffer[6]));
+}
+
 status_t handle_ibex_fi_otp_write_lock(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
@@ -466,24 +487,50 @@ status_t handle_ibex_fi_char_csr_write(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
+  // Init x5 with reference value.
+  asm volatile("li x5, %0" : : "i"(ref_values[0]));
+
   // FI code target.
   sca_set_trigger_high();
   asm volatile(NOP10);
-  for (int i = 0; i < 100; i++) {
-    CSR_WRITE(CSR_REG_MSCRATCH, ref_values[0]);
-  }
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrw	mscratch, x5");
+  asm volatile("csrr x5,mscratch");
   asm volatile(NOP10);
   sca_set_trigger_low();
+
+  uint32_t res_value;
+  asm volatile("mv %0, x5" : "=r"(res_value));
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
-  uint32_t res_values;
-  // Read values from CSRs.
-  CSR_READ(CSR_REG_MSCRATCH, &res_values);
-
   // Compare against reference values.
   uint32_t res = 0;
-  if (res_values != ref_values[0]) {
+  if (res_value != ref_values[0]) {
     res = 1;
   }
 
@@ -507,21 +554,33 @@ status_t handle_ibex_fi_char_csr_read(ujson_t *uj) {
   // Write reference value into CSR.
   CSR_WRITE(CSR_REG_MSCRATCH, ref_values[0]);
 
-  uint32_t res_values[32];
+  // Init t0...t6 with 0.
+  init_temp_regs(0);
+
   // FI code target.
   sca_set_trigger_high();
   asm volatile(NOP10);
-  for (int i = 0; i < 32; i++) {
-    CSR_READ(CSR_REG_MSCRATCH, &res_values[i]);
-  }
+  asm volatile("csrr x5,mscratch");
+  asm volatile("csrr x6,mscratch");
+  asm volatile("csrr x7,mscratch");
+  asm volatile("csrr x28,mscratch");
+  asm volatile("csrr x29,mscratch");
+  asm volatile("csrr x30,mscratch");
+  asm volatile("csrr x31,mscratch");
   asm volatile(NOP10);
   sca_set_trigger_low();
+
+  // Load register values.
+  // Result buffer.
+  uint32_t res_values[7];
+  read_temp_regs(res_values);
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
   // Compare against reference values.
   uint32_t res = 0;
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < 7; i++) {
     if (res_values[i] != ref_values[0]) {
       res |= 1;
     }
@@ -540,7 +599,7 @@ status_t handle_ibex_fi_char_csr_read(ujson_t *uj) {
   return OK_STATUS();
 }
 
-status_t handle_ibex_fi_char_flash_read(ujson_t *uj) {
+status_t handle_ibex_fi_char_flash_read(ujson_t *uj) __attribute__((optnone)) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -588,14 +647,27 @@ status_t handle_ibex_fi_char_flash_read(ujson_t *uj) {
     flash_data_valid = true;
   }
 
+  // Init t0...t6 with 0.
+  init_temp_regs(0);
+
   // FI code target.
-  uint32_t res_values[32];
   sca_set_trigger_high();
-  for (int i = 0; i < 32; i++) {
-    res_values[i] =
-        mmio_region_read32(flash_bank_1, i * (ptrdiff_t)sizeof(uint32_t));
-  }
+  asm volatile(NOP10);
+  asm volatile("lw x5, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x6, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x7, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x28, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x29, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x30, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x31, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile(NOP10);
   sca_set_trigger_low();
+
+  // Load register values.
+  // Result buffer.
+  uint32_t res_values[7];
+  read_temp_regs(res_values);
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
@@ -603,18 +675,11 @@ status_t handle_ibex_fi_char_flash_read(ujson_t *uj) {
   ibex_fi_faulty_addresses_data_t uj_output;
   memset(uj_output.addresses, 0, sizeof(uj_output.addresses));
   memset(uj_output.data, 0, sizeof(uj_output.data));
-  int faulty_address_pos = 0;
 
-  for (uint32_t flash_pos = 0; flash_pos < 32; flash_pos++) {
-    if (res_values[flash_pos] != ref_values[flash_pos]) {
-      uj_output.addresses[faulty_address_pos] = flash_pos;
-      uj_output.data[faulty_address_pos] = res_values[flash_pos];
-      faulty_address_pos++;
-      // Currently, we register only up to 8 faulty FLASH positions. If there
-      // are more, we overwrite the addresses array.
-      if (faulty_address_pos > 7) {
-        faulty_address_pos = 0;
-      }
+  for (uint32_t flash_pos = 0; flash_pos < 7; flash_pos++) {
+    if (res_values[flash_pos] != ref_values[0]) {
+      uj_output.addresses[flash_pos] = flash_pos;
+      uj_output.data[flash_pos] = res_values[flash_pos];
 
       // Re-init flash with valid data.
       flash_data_valid = false;
@@ -776,45 +841,42 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
-  // Get address of buffer located in SRAM.
-  uintptr_t sram_main_buffer_addr = (uintptr_t)&sram_main_buffer;
-  mmio_region_t sram_region_main_addr =
-      mmio_region_from_addr(sram_main_buffer_addr);
+  // Init t0...t6 with 0.
+  init_temp_regs(0);
 
-  // Write reference values into SRAM.
-  for (int i = 0; i < 256; i++) {
-    mmio_region_write32(sram_region_main_addr, i * (ptrdiff_t)sizeof(uint32_t),
-                        ref_values[i % 32]);
-  }
+  // Write reference value into SRAM.
+  sram_main_buffer[0] = ref_values[0];
 
-  uint32_t res_values[256];
   // FI code target.
   sca_set_trigger_high();
   asm volatile(NOP10);
-  for (int i = 0; i < 256; i++) {
-    res_values[i] = mmio_region_read32(sram_region_main_addr,
-                                       i * (ptrdiff_t)sizeof(uint32_t));
-  }
+  // Read from SRAM into temporary registers.
+  asm volatile("lw x5, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x6, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x7, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x28, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x29, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x30, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x31, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile(NOP10);
   sca_set_trigger_low();
+
+  // Load register values.
+  // Result buffer.
+  uint32_t res_values[7];
+  read_temp_regs(res_values);
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
   ibex_fi_faulty_addresses_data_t uj_output;
   memset(uj_output.addresses, 0, sizeof(uj_output.addresses));
   memset(uj_output.data, 0, sizeof(uj_output.data));
-  int faulty_address_pos = 0;
 
-  for (uint32_t sram_pos = 0; sram_pos < 256; sram_pos++) {
-    if (res_values[sram_pos] != ref_values[sram_pos % 32]) {
-      uj_output.addresses[faulty_address_pos] = sram_pos;
-      uj_output.data[faulty_address_pos] = res_values[sram_pos];
-      faulty_address_pos++;
-      // Currently, we register only up to 8 faulty SRAM positions. If there
-      // are more, we overwrite the addresses array.
-      if (faulty_address_pos > 7) {
-        faulty_address_pos = 0;
-      }
+  for (uint32_t sram_pos = 0; sram_pos < 7; sram_pos++) {
+    if (res_values[sram_pos] != ref_values[0]) {
+      uj_output.addresses[sram_pos] = sram_pos;
+      uj_output.data[sram_pos] = res_values[sram_pos];
     }
   }
 

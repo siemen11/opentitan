@@ -100,12 +100,14 @@ status_t handle_ibex_fi_address_translation_config(ujson_t *uj);
  * ibex.fi.char.csr_write command handler.
  *
  * This FI penetration tests executes the following instructions:
+ * - Init x5 with reference value.
  * - Set the trigger.
  * - Add 10 NOPs to delay the trigger
- * - Write reference values into CSR.
+ * - Repeat:
+ *  - Write x5 into CSR.
+ *  - Read CSR into x5
  * - Unset the trigger.
- * - Read value from CSR.
- * - Compare the values.
+ * - Compare x5 with reference value.
  * - Return the values over UART.
  *
  * Faults are injected during the trigger_high & trigger_low.
