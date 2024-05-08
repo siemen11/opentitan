@@ -15,7 +15,8 @@ extern "C" {
     value(_, Init) \
     value(_, Aes) \
     value(_, Kmac) \
-    value(_, ShadowRegWrite)
+    value(_, ShadowRegWrite) \
+    value(_, ShadowRegRead)
 UJSON_SERDE_ENUM(CryptoFiSubcommand, crypto_fi_subcommand_t, CRYPTOFI_SUBCOMMAND);
 
 #define CRYPTOFI_AES_MODE(field, string) \

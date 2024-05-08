@@ -9,9 +9,21 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * Shadow Register Read FI test.
+ *
+ * In this test, faults are injected when reading the AES and KMAC shadow
+ * registers.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj);
+
+/**
  * Shadow Register Write FI test.
  *
- * In this test, faults are injected when writing to the AES shadow registers.
+ * In this test, faults are injected when writing to the AES and KMAC shadow
+ * registers.
  *
  * @param uj An initialized uJSON context.
  * @return OK or error.

@@ -26,6 +26,7 @@
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
 #define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
+#define NOP30 NOP10 NOP10 NOP10
 
 enum {
   /**
@@ -129,6 +130,87 @@ static inline uint32_t aes_spin_until(uint32_t bit) {
       return 0;
     }
   }
+}
+
+status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  crypto_fi_test_result_mult_t uj_output;
+
+  // Initialize AES and KMAC with the default values.
+  uint32_t ctrl_reg_aes_init = AES_CTRL_SHADOWED_REG_RESVAL;
+  ctrl_reg_aes_init =
+      bitfield_field32_write(ctrl_reg_aes_init, AES_CTRL_SHADOWED_KEY_LEN_FIELD,
+                             AES_CTRL_SHADOWED_KEY_LEN_VALUE_AES_128);
+  ctrl_reg_aes_init =
+      bitfield_field32_write(ctrl_reg_aes_init, AES_CTRL_SHADOWED_MODE_FIELD,
+                             AES_CTRL_SHADOWED_MODE_VALUE_AES_ECB);
+  ctrl_reg_aes_init = bitfield_field32_write(
+      ctrl_reg_aes_init, AES_CTRL_SHADOWED_PRNG_RESEED_RATE_FIELD,
+      AES_CTRL_SHADOWED_PRNG_RESEED_RATE_VALUE_PER_64);
+  ctrl_reg_aes_init = bitfield_bit32_write(
+      ctrl_reg_aes_init, AES_CTRL_SHADOWED_SIDELOAD_BIT, true);
+  ctrl_reg_aes_init = bitfield_field32_write(
+      ctrl_reg_aes_init, AES_CTRL_SHADOWED_OPERATION_FIELD,
+      AES_CTRL_SHADOWED_OPERATION_VALUE_AES_DEC);
+  ctrl_reg_aes_init = bitfield_bit32_write(
+      ctrl_reg_aes_init, AES_CTRL_SHADOWED_MANUAL_OPERATION_BIT, true);
+  abs_mmio_write32_shadowed(
+      TOP_EARLGREY_AES_BASE_ADDR + AES_CTRL_SHADOWED_REG_OFFSET,
+      ctrl_reg_aes_init);
+  aes_spin_until(AES_STATUS_IDLE_BIT);
+
+  uint32_t ctrl_reg_kmac_init = KMAC_CFG_SHADOWED_REG_RESVAL;
+  ctrl_reg_kmac_init = bitfield_bit32_write(
+      ctrl_reg_kmac_init, KMAC_CFG_SHADOWED_MSG_ENDIANNESS_BIT, 0);
+  ctrl_reg_kmac_init = bitfield_bit32_write(
+      ctrl_reg_kmac_init, KMAC_CFG_SHADOWED_STATE_ENDIANNESS_BIT, 0);
+  ctrl_reg_kmac_init = bitfield_bit32_write(ctrl_reg_kmac_init,
+                                            KMAC_CFG_SHADOWED_SIDELOAD_BIT, 0);
+  ctrl_reg_kmac_init = bitfield_bit32_write(
+      ctrl_reg_kmac_init, KMAC_CFG_SHADOWED_ENTROPY_FAST_PROCESS_BIT, 1);
+  ctrl_reg_kmac_init = bitfield_bit32_write(ctrl_reg_kmac_init,
+                                            KMAC_CFG_SHADOWED_MSG_MASK_BIT, 0);
+  ctrl_reg_kmac_init = bitfield_bit32_write(
+      ctrl_reg_kmac_init, KMAC_CFG_SHADOWED_ENTROPY_READY_BIT, 1);
+  ctrl_reg_kmac_init = bitfield_bit32_write(
+      ctrl_reg_kmac_init, KMAC_CFG_SHADOWED_ERR_PROCESSED_BIT, 0);
+  ctrl_reg_kmac_init = bitfield_bit32_write(
+      ctrl_reg_kmac_init, KMAC_CFG_SHADOWED_EN_UNSUPPORTED_MODESTRENGTH_BIT, 0);
+  abs_mmio_write32_shadowed(
+      TOP_EARLGREY_KMAC_BASE_ADDR + KMAC_CFG_SHADOWED_REG_OFFSET,
+      ctrl_reg_kmac_init);
+
+  sca_set_trigger_high();
+  asm volatile(NOP30);
+  uint32_t ctrl_reg_aes_read = abs_mmio_read32(TOP_EARLGREY_AES_BASE_ADDR +
+                                               AES_CTRL_SHADOWED_REG_OFFSET);
+  uint32_t ctrl_reg_kmac_read = abs_mmio_read32(TOP_EARLGREY_KMAC_BASE_ADDR +
+                                                KMAC_CFG_SHADOWED_REG_OFFSET);
+  asm volatile(NOP30);
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Compare AES and KMAC values.
+  uj_output.result[0] = 0;
+  if (ctrl_reg_aes_read != ctrl_reg_aes_init) {
+    uj_output.result[0] = ctrl_reg_aes_read;
+  }
+
+  uj_output.result[1] = 0;
+  if (ctrl_reg_kmac_read != ctrl_reg_kmac_init) {
+    uj_output.result[1] = ctrl_reg_kmac_read;
+  }
+
+  uj_output.result[2] = 0;
+
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_crypto_fi_test_result_mult_t, uj, &uj_output);
+
+  return OK_STATUS();
 }
 
 status_t handle_crypto_fi_shadow_reg_write(ujson_t *uj) {
@@ -433,6 +515,8 @@ status_t handle_crypto_fi(ujson_t *uj) {
       return handle_crypto_fi_kmac(uj);
     case kCryptoFiSubcommandShadowRegWrite:
       return handle_crypto_fi_shadow_reg_write(uj);
+    case kCryptoFiSubcommandShadowRegRead:
+      return handle_crypto_fi_shadow_reg_read(uj);
     default:
       LOG_ERROR("Unrecognized Crypto FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
