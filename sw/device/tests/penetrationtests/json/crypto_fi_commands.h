@@ -14,7 +14,8 @@ extern "C" {
 #define CRYPTOFI_SUBCOMMAND(_, value) \
     value(_, Init) \
     value(_, Aes) \
-    value(_, Kmac)
+    value(_, Kmac) \
+    value(_, ShadowRegWrite)
 UJSON_SERDE_ENUM(CryptoFiSubcommand, crypto_fi_subcommand_t, CRYPTOFI_SUBCOMMAND);
 
 #define CRYPTOFI_AES_MODE(field, string) \
@@ -39,6 +40,11 @@ UJSON_SERDE_STRUCT(FiAesCiphertext, crypto_fi_aes_ciphertext_t, CRYPTOFI_AES_CIP
     field(digest, uint8_t, 8) \
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(FiKmacDigest, crypto_fi_kmac_digest_t, CRYPTOFI_KMAC_DIGEST);
+
+#define CRYPTOFI_TEST_RESULT_MULT(field, string) \
+    field(result, uint32_t, 3) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(CRYPTOFITestResultMult, crypto_fi_test_result_mult_t, CRYPTOFI_TEST_RESULT_MULT);
 
 // clang-format on
 

@@ -484,6 +484,7 @@ status_t handle_ibex_fi_address_translation_config(ujson_t *uj) {
 }
 
 status_t handle_ibex_fi_char_csr_write(ujson_t *uj) {
+  ibex_fi_test_result_t uj_output;
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -529,9 +530,9 @@ status_t handle_ibex_fi_char_csr_write(ujson_t *uj) {
   reg_alerts = sca_get_triggered_alerts();
 
   // Compare against reference values.
-  uint32_t res = 0;
+  uj_output.result = 0;
   if (res_value != ref_values[0]) {
-    res = 1;
+    uj_output.result = res_value;
   }
 
   // Read ERR_STATUS register.
@@ -539,8 +540,6 @@ status_t handle_ibex_fi_char_csr_write(ujson_t *uj) {
   TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
 
   // Send res & ERR_STATUS to host.
-  ibex_fi_test_result_t uj_output;
-  uj_output.result = res;
   uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
