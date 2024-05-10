@@ -9,6 +9,16 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * Command handler for the otbn.sca.key_sideload_fvsr test.
+ *
+ * Side-load 16 fixed vs. random keys from keymanager to OTBN.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_otbn_sca_key_sideload_fvsr(ujson_t *uj);
+
+/**
  * Select the OTBN app to load.
  *
  * Currently, only the P256KeyFromSeed application is supported.
@@ -73,6 +83,14 @@ status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_key_batch(ujson_t *uj);
  * @return OK or error.
  */
 status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_seed_batch(ujson_t *uj);
+
+/**
+ * Initializes the Keymanager used for the OTBN SCA tests.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_otbn_sca_init_keymgr(ujson_t *uj);
 
 /**
  * Initializes the OTBN SCA test on the device.

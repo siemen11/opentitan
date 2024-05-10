@@ -18,11 +18,13 @@ extern "C" {
 
 #define OTBNSCA_SUBCOMMAND(_, value) \
     value(_, Init) \
+    value(_, InitKeyMgr) \
     value(_, Ecc256EcdsaKeygenFvsrSeedBatch) \
     value(_, Ecc256EcdsaKeygenFvsrKeyBatch) \
     value(_, Ecc256SetSeed) \
     value(_, Ecc256SetC) \
-    value(_, Ecc256EnMasks)
+    value(_, Ecc256EnMasks) \
+    value(_, KeySideloadFvsr)
 UJSON_SERDE_ENUM(OtbnScaSubcommand, otbn_sca_subcommand_t, OTBNSCA_SUBCOMMAND);
 
 #define OTBN_SCA_EN_MASKS(field, string) \
@@ -44,6 +46,14 @@ UJSON_SERDE_STRUCT(PenetrationtestOtbnScaSeed, penetrationtest_otbn_sca_seed_t, 
 #define OTBN_SCA_CONSTANT(field, string) \
     field(constant, uint8_t, OTBNSCA_CMD_MAX_SEED_BYTES)
 UJSON_SERDE_STRUCT(PenetrationtestOtbnScaConstant, penetrationtest_otbn_sca_constant_t, OTBN_SCA_CONSTANT);
+
+#define OTBN_SCA_KEY(field, string) \
+    field(key, uint32_t, 4)
+UJSON_SERDE_STRUCT(PenetrationtestOtbnScaKey, penetrationtest_otbn_sca_key_t, OTBN_SCA_KEY);
+
+#define OTBN_SCA_FIXED_KEY(field, string) \
+    field(fixed_key, uint32_t)
+UJSON_SERDE_STRUCT(PenetrationtestOtbnScaFixedKey, penetrationtest_otbn_sca_fixed_key_t, OTBN_SCA_FIXED_KEY);
 
 // clang-format on
 
