@@ -22,6 +22,7 @@
 #include "sw/device/tests/penetrationtests/json/kmac_sca_commands.h"
 #include "sw/device/tests/penetrationtests/json/otbn_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/otbn_sca_commands.h"
+#include "sw/device/tests/penetrationtests/json/otp_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/prng_sca_commands.h"
 #include "sw/device/tests/penetrationtests/json/sha3_sca_commands.h"
 #include "sw/device/tests/penetrationtests/json/trigger_sca_commands.h"
@@ -30,6 +31,7 @@
 #include "fi/crypto_fi.h"
 #include "fi/ibex_fi.h"
 #include "fi/otbn_fi.h"
+#include "fi/otp_fi.h"
 #include "lib/extclk_sca_fi.h"
 #include "sca/aes_sca.h"
 #include "sca/edn_sca.h"
@@ -77,6 +79,9 @@ status_t process_cmd(ujson_t *uj) {
         break;
       case kPenetrationtestCommandOtbnSca:
         RESP_ERR(uj, handle_otbn_sca(uj));
+        break;
+      case kPenetrationtestCommandOtpFi:
+        RESP_ERR(uj, handle_otp_fi(uj));
         break;
       case kPenetrationtestCommandPrngSca:
         RESP_ERR(uj, handle_prng_sca(uj));

@@ -22,6 +22,7 @@ extern "C" {
     value(_, KmacSca) \
     value(_, OtbnFi) \
     value(_, OtbnSca) \
+    value(_, OtpFi) \
     value(_, PrngSca) \
     value(_, Sha3Sca) \
     value(_, TriggerSca)
