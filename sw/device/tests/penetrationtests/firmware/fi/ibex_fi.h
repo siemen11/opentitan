@@ -478,6 +478,29 @@ status_t handle_ibex_fi_char_unrolled_mem_op_loop(ujson_t *uj);
 status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj);
 
 /**
+ * ibex.fi.char.unrolled_reg_op_loop_chain command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Initialize register x5=0; x6=0; x7=0; x28=0; x29=0; x30=0
+ * - Add 10 NOPs to delay the trigger
+ * - Perform 10 `chained` additions defined as following:
+ *   -  x6 =  x5 + 1
+ *   -  x7 =  x6 + 1
+ *   - x28 =  x7 + 1
+ *   - x29 = x28 + 1
+ *   - x30 = x29 + 1
+ *   -  x5 = x30 + 1
+ * - Return the 6 register values over UART.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ * It needs to be ensured that the compiler does not optimize this code.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj);
+
+/**
  * Initializes the trigger and configures the device for the Ibex FI test.
  *
  * @param uj An initialized uJSON context.

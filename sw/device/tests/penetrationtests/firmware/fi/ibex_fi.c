@@ -101,6 +101,15 @@ void increment_counter(void) __attribute__((optnone)) {
   ADDI100 ADDI100 ADDI100 ADDI100 ADDI100 ADDI100 ADDI100 ADDI100 ADDI100 \
       ADDI100
 
+// Init tmpregs = 0 macro.
+#define INIT_TMPREGS "addi x5, x0, 0\n addi x6, x0, 0\n addi x7, x0, 0\n" \
+                      "addi x28, x0, 0\n addi x29, x0, 0\n addi x30, x0, 0\n"
+
+// Addi chain macro.
+#define ADDI_CHAIN "addi x6, x5, 1\n addi x7, x6, 1\n addi x28, x7, 1\n" \
+                      "addi x29, x28, 1\n addi x30, x29, 1\n addi x6, x30, 1\n"
+
+
 // Init x6 = 10000 macro.
 #define INITX6 "li x6, 10000"
 
@@ -1883,6 +1892,51 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  uint32_t data[8] = {0};
+
+  // FI code target.
+  sca_set_trigger_high();
+  asm volatile(INIT_TMPREGS);
+  asm volatile(NOP10);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile(ADDI_CHAIN);
+  asm volatile("mv %0, x5" : "=r"(data[0]));
+  asm volatile("mv %0, x6" : "=r"(data[1]));
+  asm volatile("mv %0, x7" : "=r"(data[2]));
+  asm volatile("mv %0, x28" : "=r"(data[3]));
+  asm volatile("mv %0, x29" : "=r"(data[4]));
+  asm volatile("mv %0, x30" : "=r"(data[5]));
+  sca_set_trigger_low();
+
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send data, alerts & ERR_STATUS to host.
+  ibex_fi_faulty_addresses_data_t uj_output;
+  memcpy(uj_output.data, data, sizeof(data));
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_faulty_addresses_data_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
 status_t handle_ibex_fi_char_register_file(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
@@ -2070,6 +2124,8 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_init(uj);
     case kIbexFiSubcommandCharUnrolledRegOpLoop:
       return handle_ibex_fi_char_unrolled_reg_op_loop(uj);
+    case kIbexFiSubcommandCharUnrolledRegOpLoopChain:
+      return handle_ibex_fi_char_unrolled_reg_op_loop_chain(uj);
     case kIbexFiSubcommandCharRegOpLoop:
       return handle_ibex_fi_char_reg_op_loop(uj);
     case kIbexFiSubcommandCharUnrolledMemOpLoop:

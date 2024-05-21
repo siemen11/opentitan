@@ -14,6 +14,7 @@ extern "C" {
 #define IBEXFI_SUBCOMMAND(_, value) \
     value(_, Init) \
     value(_, CharUnrolledRegOpLoop) \
+    value(_, CharUnrolledRegOpLoopChain) \
     value(_, CharRegOpLoop) \
     value(_, CharUnrolledMemOpLoop) \
     value(_, CharMemOpLoop) \
