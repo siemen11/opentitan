@@ -10,6 +10,7 @@
 #include "sw/device/lib/base/status.h"
 #include "sw/device/lib/dif/dif_aes.h"
 #include "sw/device/lib/dif/dif_kmac.h"
+#include "sw/device/lib/dif/dif_rv_core_ibex.h"
 #include "sw/device/lib/runtime/log.h"
 #include "sw/device/lib/testing/aes_testutils.h"
 #include "sw/device/lib/testing/test_framework/ottf_test_config.h"
@@ -37,6 +38,8 @@ enum {
 
 static dif_aes_t aes;
 static dif_kmac_t kmac;
+// Interface to Ibex.
+static dif_rv_core_ibex_t rv_core_ibex;
 
 static dif_aes_key_share_t aes_key_shares;
 static dif_aes_data_t aes_plaintext;
@@ -194,6 +197,10 @@ status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj) {
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
   // Compare AES and KMAC values.
   uj_output.result[0] = 0;
   if (ctrl_reg_aes_read != ctrl_reg_aes_init) {
@@ -206,7 +213,8 @@ status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj) {
   }
 
   uj_output.result[2] = 0;
-
+  
+  uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_crypto_fi_test_result_mult_t, uj, &uj_output);
 
@@ -263,6 +271,10 @@ status_t handle_crypto_fi_shadow_reg_access(ujson_t *uj) {
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
   // Read back KMAC shadow registers.
   uint32_t ctrl_reg_kmac_read = abs_mmio_read32(TOP_EARLGREY_KMAC_BASE_ADDR +
                                                 KMAC_CFG_SHADOWED_REG_OFFSET);
@@ -271,6 +283,7 @@ status_t handle_crypto_fi_shadow_reg_access(ujson_t *uj) {
   uj_output.result[1] = 0;
   uj_output.result[2] = 0;
 
+  uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_crypto_fi_test_result_mult_t, uj, &uj_output);
 
@@ -332,8 +345,13 @@ status_t handle_crypto_fi_aes(ujson_t *uj) {
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
   // Send the ciphertext and the alerts back to the host.
   crypto_fi_aes_ciphertext_t uj_output;
+  uj_output.err_status = codes;
   memcpy(uj_output.ciphertext, ciphertext.data, 16);
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_crypto_fi_aes_ciphertext_t, uj, &uj_output);
@@ -387,8 +405,13 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
 
   TRY(dif_kmac_end(&kmac, &kmac_operation_state));
 
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
   // Send the first 8 bytes of the digest and the alerts back to the host.
   crypto_fi_kmac_digest_t uj_output;
+  uj_output.err_status = codes;
   memcpy(uj_output.digest, (uint8_t *)digest, 8);
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_crypto_fi_kmac_digest_t, uj, &uj_output);
@@ -437,6 +460,16 @@ status_t handle_crypto_fi_init(ujson_t *uj) {
   };
 
   TRY(dif_kmac_configure(&kmac, config));
+
+  // Configure Ibex to allow reading ERR_STATUS register.
+  TRY(dif_rv_core_ibex_init(
+      mmio_region_from_addr(TOP_EARLGREY_RV_CORE_IBEX_CFG_BASE_ADDR),
+      &rv_core_ibex));
+
+  // Read device ID and return to host.
+  penetrationtest_device_id_t uj_output;
+  TRY(sca_read_device_id(uj_output.device_id));
+  RESP_OK(ujson_serialize_penetrationtest_device_id_t, uj, &uj_output);
 
   return OK_STATUS();
 }

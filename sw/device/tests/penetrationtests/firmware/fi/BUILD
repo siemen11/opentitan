@@ -16,6 +16,7 @@ cc_library(
         "//sw/device/lib/base:status",
         "//sw/device/lib/dif:aes",
         "//sw/device/lib/dif:kmac",
+        "//sw/device/lib/dif:rv_core_ibex",
         "//sw/device/lib/runtime:log",
         "//sw/device/lib/testing:aes_testutils",
         "//sw/device/lib/testing/test_framework:ujson_ottf",
