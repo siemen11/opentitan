@@ -107,7 +107,7 @@ void increment_counter(void) __attribute__((optnone)) {
 
 // Addi chain macro.
 #define ADDI_CHAIN "addi x6, x5, 1\n addi x7, x6, 1\n addi x28, x7, 1\n" \
-                      "addi x29, x28, 1\n addi x30, x29, 1\n addi x6, x30, 1\n"
+                      "addi x29, x28, 1\n addi x30, x29, 1\n addi x5, x30, 1\n"
 
 
 // Init x6 = 10000 macro.
@@ -1896,6 +1896,7 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
+  uint32_t addresses[8] = {0};
   uint32_t data[8] = {0};
 
   // FI code target.
@@ -1930,6 +1931,7 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj) {
 
   // Send data, alerts & ERR_STATUS to host.
   ibex_fi_faulty_addresses_data_t uj_output;
+  memcpy(uj_output.addresses, addresses, sizeof(addresses));
   memcpy(uj_output.data, data, sizeof(data));
   uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
