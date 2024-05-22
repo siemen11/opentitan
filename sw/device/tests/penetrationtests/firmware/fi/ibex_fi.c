@@ -2055,7 +2055,8 @@ status_t handle_ibex_fi_char_register_file_read(ujson_t *uj) {
   memset(uj_output.data, 0, sizeof(uj_output.data));
   for (uint32_t it = 0; it < 6; it++) {
     if (res_values[it] != ref_values[it]) {
-      uj_output.addresses[it] = it;
+      uj_output.addresses[it] = 1; // 1 indicates an error in the register at
+                                   // position it
       uj_output.data[it] = res_values[it];
     }
   }
