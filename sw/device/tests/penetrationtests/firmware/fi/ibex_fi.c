@@ -173,6 +173,47 @@ static inline void read_temp_regs(uint32_t buffer[]) {
   asm volatile("mv %0, x31" : "=r"(buffer[6]));
 }
 
+// Read back values from all registers x1...x31 into buffer.
+static inline void read_all_regs(uint32_t buffer[]) {
+  // The much nicer approach with
+  // asm volatile("sw x1, %0" : : "m"(buffer[1]));
+  // leads to two INSNs. Test in godbolt promised single INSN
+  // Uglier workaround below inserts single INSN, but requires
+  // read_all_regs() to be called prior to the FI trigger
+  // start to avoid register overwrite.
+  asm volatile("sw x1,    0(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x2,    4(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x3,    8(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x4,   12(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x5,   16(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x6,   20(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x7,   24(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x8,   28(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x9,   32(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x10,  36(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x11,  40(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x12,  44(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x13,  48(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x14,  52(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x15,  56(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x16,  60(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x17,  64(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x18,  68(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x19,  72(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x20,  76(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x21,  80(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x22,  84(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x23,  88(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x24,  92(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x25,  96(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x26, 100(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x27, 104(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x28, 108(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x29, 112(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x30, 116(%0)" : : "r"(&buffer[0]));
+  asm volatile("sw x31, 120(%0)" : : "r"(&buffer[0]));
+}
+
 // Make sure that this function does not get optimized by the compiler.
 void increment_counter(void) __attribute__((optnone)) {
   asm volatile("addi x5, x5, 1");
