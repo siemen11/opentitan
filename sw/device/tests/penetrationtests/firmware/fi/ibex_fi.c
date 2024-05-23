@@ -1377,6 +1377,8 @@ status_t handle_ibex_fi_char_unconditional_branch(ujson_t *uj) {
 }
 
 status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj) {
+  uint32_t registers[32] = {0};
+  read_all_regs(registers);
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -1418,6 +1420,7 @@ status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj) {
   asm volatile("jal ra, not_increment_counter");
   asm volatile("jal ra, not_increment_counter");
   asm volatile("jal ra, not_increment_counter");
+  read_all_regs(registers);
   asm volatile("mv %0, x5" : "=r"(result));
   sca_set_trigger_low();
   // Get registered alerts from alert handler.
@@ -1428,11 +1431,12 @@ status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj) {
   TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
 
   // Send loop counters & ERR_STATUS to host.
-  ibex_fi_test_result_t uj_output;
+  ibex_fi_test_result_registers_t uj_output;
   uj_output.result = result;
+  memcpy(uj_output.registers, registers, sizeof(registers));
   uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
-  RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
+  RESP_OK(ujson_serialize_ibex_fi_test_result_registers_t, uj, &uj_output);
   return OK_STATUS();
 }
 
