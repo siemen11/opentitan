@@ -69,11 +69,6 @@ uint32_t
                                     OTP_CTRL_PARAM_OWNER_SW_CFG_DIGEST_SIZE) /
                                    sizeof(uint32_t)];
 
-// Make sure that this function does not get optimized by the compiler.
-void increment_counter(void) __attribute__((optnone)) {
-  asm volatile("addi x5, x5, 1");
-}
-
 // Cond. branch macros.
 #define CONDBRANCHBEQ "beq x5, x6, endfitestfaultybeq\n"
 #define CONDBRANCHBNE "bne x5, x6, endfitestfaultybne\n"
@@ -175,6 +170,17 @@ static inline void read_temp_regs(uint32_t buffer[]) {
   asm volatile("mv %0, x29" : "=r"(buffer[4]));
   asm volatile("mv %0, x30" : "=r"(buffer[5]));
   asm volatile("mv %0, x31" : "=r"(buffer[6]));
+}
+
+// Make sure that this function does not get optimized by the compiler.
+void increment_counter(void) __attribute__((optnone)) {
+  asm volatile("addi x5, x5, 1");
+}
+
+// Make sure that this function does not get optimized by the compiler.
+void not_increment_counter(void) __attribute__((optnone)) {
+  asm volatile("ret");
+  asm volatile(ADDI10);
 }
 
 status_t handle_ibex_fi_otp_write_lock(ujson_t *uj) {
@@ -1328,6 +1334,66 @@ status_t handle_ibex_fi_char_unconditional_branch(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // FI code target.
+  uint32_t result = 0;
+  sca_set_trigger_high();
+  // Init x5 register we are using for the increment.
+  asm volatile(INITX5);
+  // Delay the trigger.
+  asm volatile(NOP10);
+  // Attack target.
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("jal ra, not_increment_counter");
+  asm volatile("mv %0, x5" : "=r"(result));
+  sca_set_trigger_low();
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send loop counters & ERR_STATUS to host.
+  ibex_fi_test_result_t uj_output;
+  uj_output.result = result;
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
 status_t handle_ibex_fi_char_conditional_branch_beq(ujson_t *uj)
     __attribute__((optnone)) {
   // Clear registered alerts in alert handler.
@@ -2153,6 +2219,8 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_char_conditional_branch_bltu(uj);
     case kIbexFiSubcommandCharUncondBranch:
       return handle_ibex_fi_char_unconditional_branch(uj);
+    case kIbexFiSubcommandCharUncondBranchNop:
+      return handle_ibex_fi_char_unconditional_branch_nop(uj);
     case kIbexFiSubcommandCharSramWrite:
       return handle_ibex_fi_char_sram_write(uj);
     case kIbexFiSubcommandCharSramWriteRead:

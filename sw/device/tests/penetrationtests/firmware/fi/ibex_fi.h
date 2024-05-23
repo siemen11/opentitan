@@ -297,6 +297,24 @@ status_t handle_ibex_fi_char_sram_write(ujson_t *uj);
 status_t handle_ibex_fi_char_unconditional_branch(ujson_t *uj);
 
 /**
+ * ibex.fi.char.unconditional_branch_nop command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Add 10 NOPs to delay the trigger
+ * - Execute 30 JAL uncond. branches to the following instruction sequence:
+ *   ret
+ *   10x addi x5, x5, 1
+ *   ret
+ * - Return the increment counter value over UART.
+ * Faults are injected during the trigger_high & trigger_low.
+ * It needs to be ensured that the compiler does not optimize this code.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj);
+
+/**
  * ibex.fi.char.conditional_branch_beq command handler.
  *
  * This FI penetration tests executes the following instructions:
