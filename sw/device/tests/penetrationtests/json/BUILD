@@ -111,6 +111,13 @@ cc_library(
 )
 
 cc_library(
+    name = "rom_fi_commands",
+    srcs = ["rom_fi_commands.c"],
+    hdrs = ["rom_fi_commands.h"],
+    deps = ["//sw/device/lib/ujson"],
+)
+
+cc_library(
     name = "extclk_sca_fi_commands",
     srcs = ["extclk_sca_fi_commands.c"],
     hdrs = ["extclk_sca_fi_commands.h"],

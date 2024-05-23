@@ -97,13 +97,14 @@ uint32_t
       ADDI100
 
 // Init tmpregs = 0 macro.
-#define INIT_TMPREGS "addi x5, x0, 0\n addi x6, x0, 0\n addi x7, x0, 0\n" \
-                      "addi x28, x0, 0\n addi x29, x0, 0\n addi x30, x0, 0\n"
+#define INIT_TMPREGS                                   \
+  "addi x5, x0, 0\n addi x6, x0, 0\n addi x7, x0, 0\n" \
+  "addi x28, x0, 0\n addi x29, x0, 0\n addi x30, x0, 0\n"
 
 // Addi chain macro.
-#define ADDI_CHAIN "addi x6, x5, 1\n addi x7, x6, 1\n addi x28, x7, 1\n" \
-                      "addi x29, x28, 1\n addi x30, x29, 1\n addi x5, x30, 1\n"
-
+#define ADDI_CHAIN                                      \
+  "addi x6, x5, 1\n addi x7, x6, 1\n addi x28, x7, 1\n" \
+  "addi x29, x28, 1\n addi x30, x29, 1\n addi x5, x30, 1\n"
 
 // Init x6 = 10000 macro.
 #define INITX6 "li x6, 10000"
@@ -1987,7 +1988,6 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj) {
   asm volatile("mv %0, x30" : "=r"(data[5]));
   sca_set_trigger_low();
 
-
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
@@ -2121,8 +2121,8 @@ status_t handle_ibex_fi_char_register_file_read(ujson_t *uj) {
   memset(uj_output.data, 0, sizeof(uj_output.data));
   for (uint32_t it = 0; it < 6; it++) {
     if (res_values[it] != ref_values[it]) {
-      uj_output.addresses[it] = 1; // 1 indicates an error in the register at
-                                   // position it
+      uj_output.addresses[it] = 1;  // 1 indicates an error in the register at
+                                    // position it
       uj_output.data[it] = res_values[it];
     }
   }

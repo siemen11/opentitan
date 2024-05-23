@@ -213,7 +213,7 @@ status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj) {
   }
 
   uj_output.result[2] = 0;
-  
+
   uj_output.err_status = codes;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_crypto_fi_test_result_mult_t, uj, &uj_output);
@@ -221,16 +221,21 @@ status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj) {
   return OK_STATUS();
 }
 
-#define SHADOW_REG_ACCESS(shadow_reg_addr, tmp)  \
-    abs_mmio_write32_shadowed(shadow_reg_addr, tmp); \
-    tmp = abs_mmio_read32(shadow_reg_addr);
+#define SHADOW_REG_ACCESS(shadow_reg_addr, tmp)    \
+  abs_mmio_write32_shadowed(shadow_reg_addr, tmp); \
+  tmp = abs_mmio_read32(shadow_reg_addr);
 
-#define SHADOW_REG_ACCESS_10(shadow_reg_addr, tmp) \
-    SHADOW_REG_ACCESS(shadow_reg_addr, tmp) SHADOW_REG_ACCESS(shadow_reg_addr, tmp) \
-    SHADOW_REG_ACCESS(shadow_reg_addr, tmp) SHADOW_REG_ACCESS(shadow_reg_addr, tmp) \
-    SHADOW_REG_ACCESS(shadow_reg_addr, tmp) SHADOW_REG_ACCESS(shadow_reg_addr, tmp) \
-    SHADOW_REG_ACCESS(shadow_reg_addr, tmp) SHADOW_REG_ACCESS(shadow_reg_addr, tmp) \
-    SHADOW_REG_ACCESS(shadow_reg_addr, tmp) SHADOW_REG_ACCESS(shadow_reg_addr, tmp)
+#define SHADOW_REG_ACCESS_10(shadow_reg_addr, tmp)                    \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                             \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                             \
+      SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                         \
+          SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                     \
+              SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                 \
+                  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)             \
+                      SHADOW_REG_ACCESS(shadow_reg_addr, tmp)         \
+                          SHADOW_REG_ACCESS(shadow_reg_addr, tmp)     \
+                              SHADOW_REG_ACCESS(shadow_reg_addr, tmp) \
+                                  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)
 
 status_t handle_crypto_fi_shadow_reg_access(ujson_t *uj) {
   // Clear registered alerts in alert handler.
@@ -257,8 +262,8 @@ status_t handle_crypto_fi_shadow_reg_access(ujson_t *uj) {
   ctrl_reg_kmac = bitfield_bit32_write(
       ctrl_reg_kmac, KMAC_CFG_SHADOWED_EN_UNSUPPORTED_MODESTRENGTH_BIT, 1);
 
-  uint32_t ctrl_reg_kmac_addr = TOP_EARLGREY_KMAC_BASE_ADDR +
-                                KMAC_CFG_SHADOWED_REG_OFFSET;
+  uint32_t ctrl_reg_kmac_addr =
+      TOP_EARLGREY_KMAC_BASE_ADDR + KMAC_CFG_SHADOWED_REG_OFFSET;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
