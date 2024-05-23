@@ -50,6 +50,13 @@ UJSON_SERDE_ENUM(IbexFiSubcommand, ibex_fi_subcommand_t, IBEXFI_SUBCOMMAND);
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(IbexFiTestResult, ibex_fi_test_result_t, IBEXFI_TEST_RESULT);
 
+#define IBEXFI_TEST_RESULT_REGISTERS(field, string) \
+    field(result, uint32_t) \
+    field(registers, uint32_t, 32) \
+    field(err_status, uint32_t) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(IbexFiTestResultRegisters, ibex_fi_test_result_registers_t, IBEXFI_TEST_RESULT_REGISTERS);
+
 #define IBEXFI_TEST_RESULT_MULT(field, string) \
     field(result1, uint32_t) \
     field(result2, uint32_t) \
