@@ -416,6 +416,13 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
     sca_set_trigger_low();
   }
 
+  // 2nd Squeeze. This shall enforce a permutation. Any injected fault will result
+  // in a completely different digest. Hence, allows for easy detection of an
+  // injected fault.
+  uint32_t digest_2nd[kKmacTestVector.digest_len];
+  TRY(dif_kmac_squeeze(&kmac, &kmac_operation_state, digest_2nd,
+                       kKmacTestVector.digest_len, /*processed=*/NULL));
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
@@ -429,6 +436,7 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
   crypto_fi_kmac_digest_t uj_output;
   uj_output.err_status = codes;
   memcpy(uj_output.digest, (uint8_t *)digest, 8);
+  memcpy(uj_output.digest_2nd, (uint8_t *)digest_2nd, 8);
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_crypto_fi_kmac_digest_t, uj, &uj_output);
   return OK_STATUS();

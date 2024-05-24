@@ -41,6 +41,7 @@ UJSON_SERDE_STRUCT(FiAesCiphertext, crypto_fi_aes_ciphertext_t, CRYPTOFI_AES_CIP
 
 #define CRYPTOFI_KMAC_DIGEST(field, string) \
     field(digest, uint8_t, 8) \
+    field(digest_2nd, uint8_t, 8) \
     field(alerts, uint32_t, 3) \
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(FiKmacDigest, crypto_fi_kmac_digest_t, CRYPTOFI_KMAC_DIGEST);
