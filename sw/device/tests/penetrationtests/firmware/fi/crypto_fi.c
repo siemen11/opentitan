@@ -394,6 +394,17 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
     sca_set_trigger_low();
   }
 
+  // Static. Set and unset the trigger when static_trigger is true.
+  if (uj_data.static_trigger) {
+    sca_set_trigger_high();
+  }
+  asm volatile(NOP30);
+  asm volatile(NOP30);
+  asm volatile(NOP30);
+  if (uj_data.static_trigger) {
+    sca_set_trigger_low();
+  }
+
   // Squeeze. Set and unset the trigger when squeeze_trigger is true.
   uint32_t digest[kKmacTestVector.digest_len];
   if (uj_data.squeeze_trigger) {

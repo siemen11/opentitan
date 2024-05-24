@@ -29,6 +29,7 @@ UJSON_SERDE_STRUCT(CryptoFiAesMode, crypto_fi_aes_mode_t, CRYPTOFI_AES_MODE);
 #define CRYPTOFI_KMAC_MODE(field, string) \
     field(key_trigger, bool) \
     field(absorb_trigger, bool) \
+    field(static_trigger, bool) \
     field(squeeze_trigger, bool)
 UJSON_SERDE_STRUCT(CryptoFiKmacMode, crypto_fi_kmac_mode_t, CRYPTOFI_KMAC_MODE);
 
