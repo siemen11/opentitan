@@ -50,13 +50,13 @@ static inline void copy_to_registers(uint32_t val0, uint32_t val1,
                                      uint32_t val2, uint32_t val3,
                                      uint32_t val4, uint32_t val5,
                                      uint32_t val6) {
-  asm volatile("mv %0, x5" : "=r"(val0));
-  asm volatile("mv %0, x6" : "=r"(val1));
-  asm volatile("mv %0, x7" : "=r"(val2));
-  asm volatile("mv %0, x28" : "=r"(val3));
-  asm volatile("mv %0, x29" : "=r"(val4));
-  asm volatile("mv %0, x30" : "=r"(val5));
-  asm volatile("mv %0, x31" : "=r"(val6));
+  asm volatile("mv x5, %0" : "=r"(val0));
+  asm volatile("mv x6, %0" : "=r"(val1));
+  asm volatile("mv x7, %0" : "=r"(val2));
+  asm volatile("mv x28, %0" : "=r"(val3));
+  asm volatile("mv x29, %0" : "=r"(val4));
+  asm volatile("mv x30, %0" : "=r"(val5));
+  asm volatile("mv x31, %0" : "=r"(val6));
 }
 
 // Generate Fixed vs Random (FvsR) array of values. The fixed value is provided
