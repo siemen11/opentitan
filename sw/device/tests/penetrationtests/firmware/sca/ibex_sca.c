@@ -44,6 +44,28 @@ OT_SECTION(".data")
 static volatile uint32_t sram_main_buffer[8];
 static volatile uint32_t sram_main_buffer_batch[256];
 
+// Load value in x5. Zeroize x6...x7 and x28...x31.
+static inline void init_registers(uint32_t value) {
+  asm volatile("mv x5, %0" : : "r"(value));
+  asm volatile("mv x6, x0");
+  asm volatile("mv x7, x0");
+  asm volatile("mv x28, x0");
+  asm volatile("mv x29, x0");
+  asm volatile("mv x30, x0");
+  asm volatile("mv x31, x0");
+}
+
+// Function to assign x6...x7 and x28...x31 the provided values val0...val6.
+// Inline to avoid function calls for SCA measurements.
+static inline void move_bw_registers(void) {
+  asm volatile("mv x6, x5");
+  asm volatile("mv x7, x5");
+  asm volatile("mv x28, x5");
+  asm volatile("mv x29, x5");
+  asm volatile("mv x30, x5");
+  asm volatile("mv x31, x5");
+}
+
 // Function to assign x5...x7 and x28...x31 the provided values val0...val6.
 // Inline to avoid function calls for SCA measurements.
 static inline void copy_to_registers(uint32_t val0, uint32_t val1,
@@ -491,14 +513,14 @@ status_t handle_ibex_sca_register_file_write_batch_fvsr(ujson_t *uj) {
 
   // SCA code target.
   for (size_t i = 0; i < uj_data.num_iterations; i++) {
+    init_registers(values[i]);
     sca_set_trigger_high();
     // Give the trigger time to rise.
-    asm volatile(NOP30);
+    asm volatile(NOP10);
     // Write provided data into register file.
-    copy_to_registers(values[i], values[i], values[i], values[i], values[i],
-                      values[i], values[i]);
+    move_bw_registers();
     sca_set_trigger_low();
-    asm volatile(NOP30);
+    asm volatile(NOP10);
   }
 
   // Write back last value written into the RF to validate generated data.
