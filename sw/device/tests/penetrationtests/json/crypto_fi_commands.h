@@ -15,6 +15,7 @@ extern "C" {
     value(_, Init) \
     value(_, Aes) \
     value(_, Kmac) \
+    value(_, KmacState) \
     value(_, ShadowRegAccess) \
     value(_, ShadowRegRead)
 UJSON_SERDE_ENUM(CryptoFiSubcommand, crypto_fi_subcommand_t, CRYPTOFI_SUBCOMMAND);
@@ -38,6 +39,14 @@ UJSON_SERDE_STRUCT(CryptoFiKmacMode, crypto_fi_kmac_mode_t, CRYPTOFI_KMAC_MODE);
     field(alerts, uint32_t, 3) \
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(FiAesCiphertext, crypto_fi_aes_ciphertext_t, CRYPTOFI_AES_CIPHERTEXT);
+
+#define CRYPTOFI_KMAC_STATE(field, string) \
+    field(share0, uint8_t, 200) \
+    field(share1, uint8_t, 200) \
+    field(digest, uint8_t, 8) \
+    field(alerts, uint32_t, 3) \
+    field(err_status, uint32_t)
+UJSON_SERDE_STRUCT(FiKmacState, crypto_fi_kmac_state_t, CRYPTOFI_KMAC_STATE);
 
 #define CRYPTOFI_KMAC_DIGEST(field, string) \
     field(digest, uint8_t, 8) \

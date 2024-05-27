@@ -442,6 +442,63 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_crypto_fi_kmac_state(ujson_t *uj) {
+  // Get the test mode.
+  crypto_fi_kmac_mode_t uj_data;
+  TRY(ujson_deserialize_crypto_fi_kmac_mode_t(uj, &uj_data));
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Configure and write key to the KMAC block.
+  dif_kmac_operation_state_t kmac_operation_state;
+  TRY(dif_kmac_mode_kmac_start(&kmac, &kmac_operation_state,
+                               kKmacTestVector.mode, 0, &kKmacTestVector.key,
+                               NULL));
+  // Absorb.
+  TRY(dif_kmac_absorb(&kmac, &kmac_operation_state, kKmacTestVector.message,
+                      kKmacTestVector.message_len, NULL));
+
+  // Squeeze. Set and unset the trigger when squeeze_trigger is true.
+  uint32_t digest[kKmacTestVector.digest_len];
+  TRY(dif_kmac_squeeze(&kmac, &kmac_operation_state, digest,
+                       kKmacTestVector.digest_len, /*processed=*/NULL));
+
+  // Static.
+  sca_set_trigger_high();
+  asm volatile(NOP30);
+  asm volatile(NOP30);
+  asm volatile(NOP30);
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send the Keccak state and the alerts back to the host.
+  crypto_fi_kmac_state_t uj_output;
+  // Read Keccak state shares
+  const mmio_region_t base = kmac.base_addr;
+  ptrdiff_t offset = KMAC_STATE_REG_OFFSET;
+  for (size_t i=0; i<200; i++) {
+    uj_output.share0[i] = mmio_region_read8(base, offset);
+    uj_output.share1[i] =
+        mmio_region_read8(base, offset + kDifKmacStateShareOffset);
+    offset += sizeof(uint8_t);
+  }
+  // Read error, digest, and alerts
+  uj_output.err_status = codes;
+  memcpy(uj_output.digest, (uint8_t *)digest, 8);
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+
+  RESP_OK(ujson_serialize_crypto_fi_kmac_state_t, uj, &uj_output);
+
+  TRY(dif_kmac_end(&kmac, &kmac_operation_state));
+  return OK_STATUS();
+}
+
 status_t handle_crypto_fi_init(ujson_t *uj) {
   sca_select_trigger_type(kScaTriggerTypeSw);
   sca_init(kScaTriggerSourceAes,
@@ -508,6 +565,8 @@ status_t handle_crypto_fi(ujson_t *uj) {
       return handle_crypto_fi_aes(uj);
     case kCryptoFiSubcommandKmac:
       return handle_crypto_fi_kmac(uj);
+    case kCryptoFiSubcommandKmacState:
+      return handle_crypto_fi_kmac_state(uj);
     case kCryptoFiSubcommandShadowRegAccess:
       return handle_crypto_fi_shadow_reg_access(uj);
     case kCryptoFiSubcommandShadowRegRead:
