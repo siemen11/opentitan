@@ -46,24 +46,24 @@ static volatile uint32_t sram_main_buffer_batch[256];
 
 // Load value in x5. Zeroize x6...x7 and x28...x31.
 static inline void init_registers(uint32_t value) {
-  asm volatile("mv x5, %0" : : "r"(value));
-  asm volatile("mv x6, x0");
-  asm volatile("mv x7, x0");
-  asm volatile("mv x28, x0");
-  asm volatile("mv x29, x0");
-  asm volatile("mv x30, x0");
-  asm volatile("mv x31, x0");
+  asm volatile("mv x5,  %0" : : "r"(value) : "x5");
+  asm volatile("mv x6,  x0" : : : "x6");
+  asm volatile("mv x7,  x0" : : : "x7");
+  asm volatile("mv x28, x0" : : : "x28");
+  asm volatile("mv x29, x0" : : : "x29");
+  asm volatile("mv x30, x0" : : : "x30");
+  asm volatile("mv x31, x0" : : : "x31");
 }
 
 // Function to assign x6...x7 and x28...x31 the provided values val0...val6.
 // Inline to avoid function calls for SCA measurements.
 static inline void move_bw_registers(void) {
-  asm volatile("mv x6, x5");
-  asm volatile("mv x7, x5");
-  asm volatile("mv x28, x5");
-  asm volatile("mv x29, x5");
-  asm volatile("mv x30, x5");
-  asm volatile("mv x31, x5");
+  asm volatile("mv x6,  x5" : : : "x6");
+  asm volatile("mv x7,  x5" : : : "x7");
+  asm volatile("mv x28, x5" : : : "x28");
+  asm volatile("mv x29, x5" : : : "x29");
+  asm volatile("mv x30, x5" : : : "x30");
+  asm volatile("mv x31, x5" : : : "x31");
 }
 
 // Function to assign x5...x7 and x28...x31 the provided values val0...val6.
@@ -72,13 +72,13 @@ static inline void copy_to_registers(uint32_t val0, uint32_t val1,
                                      uint32_t val2, uint32_t val3,
                                      uint32_t val4, uint32_t val5,
                                      uint32_t val6) {
-  asm volatile("mv x5, %0" : "=r"(val0));
-  asm volatile("mv x6, %0" : "=r"(val1));
-  asm volatile("mv x7, %0" : "=r"(val2));
-  asm volatile("mv x28, %0" : "=r"(val3));
-  asm volatile("mv x29, %0" : "=r"(val4));
-  asm volatile("mv x30, %0" : "=r"(val5));
-  asm volatile("mv x31, %0" : "=r"(val6));
+  asm volatile("mv x5,  %0" : : "r"(val0) : "x5");
+  asm volatile("mv x6,  %0" : : "r"(val1) : "x6");
+  asm volatile("mv x7,  %0" : : "r"(val2) : "x7");
+  asm volatile("mv x28, %0" : : "r"(val3) : "x28");
+  asm volatile("mv x29, %0" : : "r"(val4) : "x29");
+  asm volatile("mv x30, %0" : : "r"(val5) : "x30");
+  asm volatile("mv x31, %0" : : "r"(val6) : "x31");
 }
 
 // Generate Fixed vs Random (FvsR) array of values. The fixed value is provided
