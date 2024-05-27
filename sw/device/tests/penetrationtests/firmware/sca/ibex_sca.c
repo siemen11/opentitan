@@ -520,7 +520,7 @@ status_t handle_ibex_sca_register_file_write_batch_fvsr(ujson_t *uj) {
     // Write provided data into register file.
     move_bw_registers();
     sca_set_trigger_low();
-    asm volatile(NOP10);
+    asm volatile(NOP30);
   }
 
   // Write back last value written into the RF to validate generated data.
