@@ -513,8 +513,8 @@ status_t handle_ibex_sca_register_file_write_batch_fvsr(ujson_t *uj) {
 
   // SCA code target.
   for (size_t i = 0; i < uj_data.num_iterations; i++) {
-    init_registers(values[i]);
     sca_set_trigger_high();
+    init_registers(values[i]);
     // Give the trigger time to rise.
     asm volatile(NOP10);
     // Write provided data into register file.
