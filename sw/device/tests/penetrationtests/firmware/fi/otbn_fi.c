@@ -24,6 +24,9 @@
 // Interface to Ibex.
 static dif_rv_core_ibex_t rv_core_ibex;
 
+static dif_otbn_t otbn;
+static dif_keymgr_t keymgr;
+
 // Indicates whether the load_integrity test is already initialized.
 static bool load_integrity_init;
 // Reference checksum for the load integrity test.
@@ -61,20 +64,20 @@ static const otbn_addr_t kOtbnAppKeySideloadks1l =
 static const otbn_addr_t kOtbnAppKeySideloadks1h =
     OTBN_ADDR_T_INIT(otbn_key_sideload, k_s1_h);
 
-// Key diversification data for testing
-static const keymgr_diversification_t kTestDiversification = {
-    .salt =
-        {
-            0x00112233,
-            0x44556677,
-            0x8899aabb,
-            0xccddeeff,
-            0x00010203,
-            0x04050607,
-            0x08090a0b,
-            0x0c0d0e0f,
-        },
-    .version = 0x9,
+static const dif_keymgr_versioned_key_params_t kKeyVersionedParamsOTBNFI = {
+    .dest = kDifKeymgrVersionedKeyDestSw,
+    .salt =  // the salt doesn't really matter here.
+    {
+        0xb6521d8f,
+        0x13a0e876,
+        0x1ca1567b,
+        0xb4fb0fdf,
+        0x9f89bc56,
+        0x4bd127c7,
+        0x322288d8,
+        0xde919d54,
+    },
+    .version = 0x0,  // specify a low enough version to work with the ROM EXT.
 };
 
 /**
@@ -96,8 +99,6 @@ static status_t clear_otbn(void) {
  * @returns Error bits.
  */
 status_t read_otbn_err_bits(dif_otbn_err_bits_t *err_otbn) {
-  dif_otbn_t otbn;
-  TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
   TRY(dif_otbn_get_err_bits(&otbn, err_otbn));
   return OK_STATUS();
 }
@@ -108,8 +109,6 @@ status_t read_otbn_err_bits(dif_otbn_err_bits_t *err_otbn) {
  * @returns Load checksum.
  */
 status_t read_otbn_load_checksum(uint32_t *checksum) {
-  dif_otbn_t otbn;
-  TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
   TRY(dif_otbn_get_load_checksum(&otbn, checksum));
   return OK_STATUS();
 }
@@ -118,8 +117,6 @@ status_t read_otbn_load_checksum(uint32_t *checksum) {
  * Clear the OTBN load checksum.
  */
 status_t clear_otbn_load_checksum(void) {
-  dif_otbn_t otbn;
-  TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
   TRY(dif_otbn_clear_load_checksum(&otbn));
   return OK_STATUS();
 }
@@ -134,6 +131,7 @@ status_t clear_otbn_load_checksum(void) {
  * @param uj The received uJSON data.
  */
 status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
+  TRY(dif_otbn_set_ctrl_software_errs_fatal(&otbn, /*enable=*/false));
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -145,10 +143,10 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
 
   // FI code target.
   sca_set_trigger_high();
-  status_t keymgr_res = keymgr_generate_key_otbn(kTestDiversification);
   otbn_execute();
   otbn_busy_wait_for_done();
   sca_set_trigger_low();
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
@@ -170,18 +168,8 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   dif_rv_core_ibex_error_status_t err_ibx;
   TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
-  // Set error value to 1 if key sideloading failed.
-  uint32_t res = 0;
-  if (keymgr_res.value != kHardenedBoolTrue) {
-    res = 1;
-  }
-
   // Read key again and compare.
   otbn_load_app(kOtbnAppKeySideload);
-  keymgr_res = keymgr_generate_key_otbn(kTestDiversification);
-  if (keymgr_res.value != kHardenedBoolTrue) {
-    return ABORTED();
-  }
   otbn_execute();
   otbn_busy_wait_for_done();
 
@@ -190,11 +178,12 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   otbn_dmem_read(1, kOtbnAppKeySideloadks1l, &key_share_1_l_ref);
   otbn_dmem_read(1, kOtbnAppKeySideloadks1h, &key_share_1_h_ref);
 
+  uint32_t res = 0;
   if ((key_share_0_l != key_share_0_l_ref) ||
       (key_share_0_h != key_share_0_h_ref) ||
       (key_share_1_l != key_share_1_l_ref) ||
       (key_share_1_h != key_share_1_h_ref)) {
-    res |= 2;
+    res |= 1;
   }
 
   // Clear OTBN memory.
@@ -542,13 +531,15 @@ status_t handle_otbn_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
  * @param uj The received uJSON data.
  */
 status_t handle_otbn_fi_init_keymgr(ujson_t *uj) {
-  dif_keymgr_t keymgr;
   dif_kmac_t kmac;
-  TRY(keymgr_testutils_startup(&keymgr, &kmac));
-  TRY(keymgr_testutils_advance_state(&keymgr, &kOwnerIntParams));
-  TRY(keymgr_testutils_advance_state(&keymgr, &kOwnerRootKeyParams));
-  TRY(keymgr_testutils_check_state(&keymgr, kDifKeymgrStateOwnerRootKey));
+  TRY(dif_kmac_init(mmio_region_from_addr(TOP_EARLGREY_KMAC_BASE_ADDR), &kmac));
+  TRY(dif_keymgr_init(mmio_region_from_addr(TOP_EARLGREY_KEYMGR_BASE_ADDR),
+                      &keymgr));
+  TRY(keymgr_testutils_initialize(&keymgr, &kmac));
 
+  dif_keymgr_versioned_key_params_t sideload_params = kKeyVersionedParamsOTBNFI;
+  sideload_params.dest = kDifKeymgrVersionedKeyDestOtbn;
+  TRY(keymgr_testutils_generate_versioned_key(&keymgr, sideload_params));
   return OK_STATUS();
 }
 
@@ -575,6 +566,9 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
   TRY(dif_rv_core_ibex_init(
       mmio_region_from_addr(TOP_EARLGREY_RV_CORE_IBEX_CFG_BASE_ADDR),
       &rv_core_ibex));
+
+  // Init the OTBN core.
+  TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
 
   // Configure the alert handler. Alerts triggered by IP blocks are captured
   // and reported to the test.
