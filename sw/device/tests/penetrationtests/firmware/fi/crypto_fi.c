@@ -225,17 +225,17 @@ status_t handle_crypto_fi_shadow_reg_read(ujson_t *uj) {
   abs_mmio_write32_shadowed(shadow_reg_addr, tmp); \
   tmp = abs_mmio_read32(shadow_reg_addr);
 
-#define SHADOW_REG_ACCESS_10(shadow_reg_addr, tmp)                    \
-  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                             \
-  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                             \
-      SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                         \
-          SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                     \
-              SHADOW_REG_ACCESS(shadow_reg_addr, tmp)                 \
-                  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)             \
-                      SHADOW_REG_ACCESS(shadow_reg_addr, tmp)         \
-                          SHADOW_REG_ACCESS(shadow_reg_addr, tmp)     \
-                              SHADOW_REG_ACCESS(shadow_reg_addr, tmp) \
-                                  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)
+#define SHADOW_REG_ACCESS_10(shadow_reg_addr, tmp) \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)          \
+  SHADOW_REG_ACCESS(shadow_reg_addr, tmp)
 
 status_t handle_crypto_fi_shadow_reg_access(ujson_t *uj) {
   // Clear registered alerts in alert handler.
@@ -416,9 +416,9 @@ status_t handle_crypto_fi_kmac(ujson_t *uj) {
     sca_set_trigger_low();
   }
 
-  // 2nd Squeeze. This shall enforce a permutation. Any injected fault will result
-  // in a completely different digest. Hence, allows for easy detection of an
-  // injected fault.
+  // 2nd Squeeze. This shall enforce a permutation. Any injected fault will
+  // result in a completely different digest. Hence, allows for easy detection
+  // of an injected fault.
   uint32_t digest_2nd[kKmacTestVector.digest_len];
   TRY(dif_kmac_squeeze(&kmac, &kmac_operation_state, digest_2nd,
                        kKmacTestVector.digest_len, /*processed=*/NULL));
@@ -482,7 +482,7 @@ status_t handle_crypto_fi_kmac_state(ujson_t *uj) {
   // Read Keccak state shares
   const mmio_region_t base = kmac.base_addr;
   ptrdiff_t offset = KMAC_STATE_REG_OFFSET;
-  for (size_t i=0; i<200; i++) {
+  for (size_t i = 0; i < 200; i++) {
     uj_output.share0[i] = mmio_region_read8(base, offset);
     uj_output.share1[i] =
         mmio_region_read8(base, offset + kDifKmacStateShareOffset);
