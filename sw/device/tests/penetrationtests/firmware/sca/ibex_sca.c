@@ -24,6 +24,9 @@
 static dif_keymgr_t keymgr;
 static dif_kmac_t kmac;
 
+#define MAX_BATCH_SIZE 256
+#define DEST_REGS_CNT 6
+
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
 #define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
@@ -45,8 +48,14 @@ static volatile uint32_t sram_main_buffer[8];
 static volatile uint32_t sram_main_buffer_batch[256];
 
 // Load value in x5. Zeroize x6...x7 and x28...x31.
-static inline void init_registers(uint32_t value) {
-  asm volatile("mv x5,  %0" : : "r"(value) : "x5");
+static inline void init_registers(uint32_t val0, uint32_t val1, uint32_t val2,
+                                  uint32_t val3, uint32_t val4, uint32_t val5) {
+  asm volatile("mv x5,  %0" : : "r"(val0) : "x5");
+  asm volatile("mv x18, %0" : : "r"(val1) : "x18");
+  asm volatile("mv x19, %0" : : "r"(val2) : "x19");
+  asm volatile("mv x20, %0" : : "r"(val3) : "x20");
+  asm volatile("mv x21, %0" : : "r"(val4) : "x21");
+  asm volatile("mv x22, %0" : : "r"(val5) : "x22");
   asm volatile("mv x6,  x0" : : : "x6");
   asm volatile("mv x7,  x0" : : : "x7");
   asm volatile("mv x28, x0" : : : "x28");
@@ -58,12 +67,12 @@ static inline void init_registers(uint32_t value) {
 // Function to assign x6...x7 and x28...x31 the provided values val0...val6.
 // Inline to avoid function calls for SCA measurements.
 static inline void move_bw_registers(void) {
-  asm volatile("mv x6,  x5" : : : "x6");
-  asm volatile("mv x7,  x5" : : : "x7");
-  asm volatile("mv x28, x5" : : : "x28");
-  asm volatile("mv x29, x5" : : : "x29");
-  asm volatile("mv x30, x5" : : : "x30");
-  asm volatile("mv x31, x5" : : : "x31");
+  asm volatile("mv x6,   x5" : : : "x6");
+  asm volatile("mv x7,  x18" : : : "x7");
+  asm volatile("mv x28, x19" : : : "x28");
+  asm volatile("mv x29, x20" : : : "x29");
+  asm volatile("mv x30, x21" : : : "x30");
+  asm volatile("mv x31, x22" : : : "x31");
 }
 
 // Function to assign x5...x7 and x28...x31 the provided values val0...val6.
@@ -505,16 +514,17 @@ status_t handle_ibex_sca_register_file_write_batch_fvsr(ujson_t *uj) {
   // Get number of iterations and fixed data.
   ibex_sca_test_fvsr_t uj_data;
   TRY(ujson_deserialize_ibex_sca_test_fvsr_t(uj, &uj_data));
-  TRY_CHECK(uj_data.num_iterations < 256);
+  TRY_CHECK(uj_data.num_iterations < MAX_BATCH_SIZE);
 
   // Generate FvsR values.
-  uint32_t values[256];
+  uint32_t values[MAX_BATCH_SIZE];
   generate_fvsr(uj_data.num_iterations, uj_data.fixed_data, values);
 
   // SCA code target.
   for (size_t i = 0; i < uj_data.num_iterations; i++) {
     sca_set_trigger_high();
-    init_registers(values[i]);
+    init_registers(values[i], values[i], values[i], values[i], values[i],
+                   values[i]);
     // Give the trigger time to rise.
     asm volatile(NOP10);
     // Write provided data into register file.
@@ -534,27 +544,30 @@ status_t handle_ibex_sca_register_file_write_batch_random(ujson_t *uj) {
   // Get number of iterations.
   ibex_sca_batch_t uj_data;
   TRY(ujson_deserialize_ibex_sca_batch_t(uj, &uj_data));
-  TRY_CHECK(uj_data.num_iterations < 256);
+  TRY_CHECK(uj_data.num_iterations < MAX_BATCH_SIZE);
 
   // Generate random values.
-  uint32_t values[256];
-  generate_random(uj_data.num_iterations, values);
+  uint32_t values[MAX_BATCH_SIZE * DEST_REGS_CNT];
+  generate_random(uj_data.num_iterations * DEST_REGS_CNT, values);
 
   // SCA code target.
   for (size_t i = 0; i < uj_data.num_iterations; i++) {
     sca_set_trigger_high();
+    init_registers(values[i * DEST_REGS_CNT], values[i * DEST_REGS_CNT + 1],
+                   values[i * DEST_REGS_CNT + 2], values[i * DEST_REGS_CNT + 3],
+                   values[i * DEST_REGS_CNT + 4],
+                   values[i * DEST_REGS_CNT + 5]);
     // Give the trigger time to rise.
-    asm volatile(NOP30);
+    asm volatile(NOP10);
     // Write provided data into register file.
-    copy_to_registers(values[i], values[i], values[i], values[i], values[i],
-                      values[i], values[i]);
+    move_bw_registers();
     sca_set_trigger_low();
     asm volatile(NOP30);
   }
 
   // Write back last value written into the RF to validate generated data.
   ibex_sca_result_t uj_output;
-  uj_output.result = values[uj_data.num_iterations - 1];
+  uj_output.result = values[uj_data.num_iterations * DEST_REGS_CNT - 1];
   RESP_OK(ujson_serialize_ibex_sca_result_t, uj, &uj_output);
   return OK_STATUS();
 }
