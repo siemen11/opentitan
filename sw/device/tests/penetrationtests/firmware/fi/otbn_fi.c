@@ -185,7 +185,7 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   uj_output.keys[0] = key_share_0_l;
   uj_output.keys[1] = key_share_0_h;
   uj_output.keys[2] = key_share_1_l;
-  uj_output.keys[3] = key_share_1_h;  
+  uj_output.keys[3] = key_share_1_h;
 
   uj_output.res = 0;
   if ((key_share_0_l != key_share_0_l_ref) ||

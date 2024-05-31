@@ -304,23 +304,22 @@ status_t handle_crypto_fi_aes(ujson_t *uj) {
 
   // Write the key into the AES block. Set and unset the trigger when
   // key_trigger is true.
-  AES_TESTUTILS_WAIT_FOR_STATUS(&aes, kDifAesStatusIdle, true,
-                                kAesWaitTimeout);
+  AES_TESTUTILS_WAIT_FOR_STATUS(&aes, kDifAesStatusIdle, true, kAesWaitTimeout);
   if (uj_data.key_trigger) {
     sca_set_trigger_high();
   }
   TRY(dif_aes_start(&aes, &transaction, &aes_key_shares, NULL));
   // Busy polling because AES_TESTUTILS_WAIT_FOR_STATUS seems to take longer
   // (~100us) as expected.
-  while(!aes_testutils_get_status(&aes, kDifAesStatusInputReady));
+  while (!aes_testutils_get_status(&aes, kDifAesStatusInputReady))
+    ;
   if (uj_data.key_trigger) {
     sca_set_trigger_low();
   }
 
   // Write the plaintext into the AES block. Set and unset the trigger when
   // plaintext_trigger is true.
-  AES_TESTUTILS_WAIT_FOR_STATUS(&aes, kDifAesStatusIdle, true,
-                                kAesWaitTimeout);
+  AES_TESTUTILS_WAIT_FOR_STATUS(&aes, kDifAesStatusIdle, true, kAesWaitTimeout);
   AES_TESTUTILS_WAIT_FOR_STATUS(&aes, kDifAesStatusInputReady, true,
                                 kAesWaitTimeout);
   if (uj_data.plaintext_trigger) {
@@ -340,7 +339,8 @@ status_t handle_crypto_fi_aes(ujson_t *uj) {
   TRY(dif_aes_trigger(&aes, kDifAesTriggerStart));
   // Busy polling because AES_TESTUTILS_WAIT_FOR_STATUS seems to take longer
   // (~100us) as expected.
-  while(!aes_testutils_get_status(&aes, kDifAesStatusOutputValid));
+  while (!aes_testutils_get_status(&aes, kDifAesStatusOutputValid))
+    ;
   asm volatile(NOP30);
   if (uj_data.encrypt_trigger) {
     sca_set_trigger_low();
