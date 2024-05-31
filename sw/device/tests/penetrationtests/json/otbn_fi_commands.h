@@ -36,6 +36,14 @@ UJSON_SERDE_STRUCT(OtbnFiLoopCounterOutput, otbn_fi_loop_counter_t, OTBNFI_LOOP_
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiResultOutput, otbn_fi_result_t, OTBNFI_RESULT_OUTPUT);
 
+#define OTBNFI_KEY_OUTPUT(field, string) \
+    field(res, uint32_t) \
+    field(keys, uint32_t, 4) \
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(OtbnFiKeyOutput, otbn_fi_keys_t, OTBNFI_KEY_OUTPUT);
+
 // clang-format on
 
 #ifdef __cplusplus

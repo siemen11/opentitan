@@ -64,6 +64,9 @@ static const otbn_addr_t kOtbnAppKeySideloadks1l =
 static const otbn_addr_t kOtbnAppKeySideloadks1h =
     OTBN_ADDR_T_INIT(otbn_key_sideload, k_s1_h);
 
+uint32_t key_share_0_l_ref, key_share_0_h_ref;
+uint32_t key_share_1_l_ref, key_share_1_h_ref;
+
 static const dif_keymgr_versioned_key_params_t kKeyVersionedParamsOTBNFI = {
     .dest = kDifKeymgrVersionedKeyDestSw,
     .salt =  // the salt doesn't really matter here.
@@ -138,7 +141,19 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   if (!key_sideloading_init) {
     // Setup keymanager for sideloading key into OTBN.
     otbn_load_app(kOtbnAppKeySideload);
+    // Get reference keys.
+    otbn_execute();
+    otbn_busy_wait_for_done();
+
+    otbn_dmem_read(1, kOtbnAppKeySideloadks0l, &key_share_0_l_ref);
+    otbn_dmem_read(1, kOtbnAppKeySideloadks0h, &key_share_0_h_ref);
+    otbn_dmem_read(1, kOtbnAppKeySideloadks1l, &key_share_1_l_ref);
+    otbn_dmem_read(1, kOtbnAppKeySideloadks1h, &key_share_1_h_ref);
+
     key_sideloading_init = true;
+
+    // Clear OTBN memory.
+    TRY(clear_otbn());
   }
 
   // FI code target.
@@ -151,10 +166,8 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   reg_alerts = sca_get_triggered_alerts();
 
   // Read loop counter from OTBN data memory.
-  uint32_t key_share_0_l, key_share_0_l_ref;
-  uint32_t key_share_0_h, key_share_0_h_ref;
-  uint32_t key_share_1_l, key_share_1_l_ref;
-  uint32_t key_share_1_h, key_share_1_h_ref;
+  uint32_t key_share_0_l, key_share_0_h;
+  uint32_t key_share_1_l, key_share_1_h;
   otbn_dmem_read(1, kOtbnAppKeySideloadks0l, &key_share_0_l);
   otbn_dmem_read(1, kOtbnAppKeySideloadks0h, &key_share_0_h);
   otbn_dmem_read(1, kOtbnAppKeySideloadks1l, &key_share_1_l);
@@ -168,34 +181,28 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   dif_rv_core_ibex_error_status_t err_ibx;
   TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
 
-  // Read key again and compare.
-  otbn_load_app(kOtbnAppKeySideload);
-  otbn_execute();
-  otbn_busy_wait_for_done();
+  otbn_fi_keys_t uj_output;
+  uj_output.keys[0] = key_share_0_l;
+  uj_output.keys[1] = key_share_0_h;
+  uj_output.keys[2] = key_share_1_l;
+  uj_output.keys[3] = key_share_1_h;  
 
-  otbn_dmem_read(1, kOtbnAppKeySideloadks0l, &key_share_0_l_ref);
-  otbn_dmem_read(1, kOtbnAppKeySideloadks0h, &key_share_0_h_ref);
-  otbn_dmem_read(1, kOtbnAppKeySideloadks1l, &key_share_1_l_ref);
-  otbn_dmem_read(1, kOtbnAppKeySideloadks1h, &key_share_1_h_ref);
-
-  uint32_t res = 0;
+  uj_output.res = 0;
   if ((key_share_0_l != key_share_0_l_ref) ||
       (key_share_0_h != key_share_0_h_ref) ||
       (key_share_1_l != key_share_1_l_ref) ||
       (key_share_1_h != key_share_1_h_ref)) {
-    res |= 1;
+    uj_output.res = 1;
   }
 
   // Clear OTBN memory.
   TRY(clear_otbn());
 
   // Send result & ERR_STATUS to host.
-  otbn_fi_result_t uj_output;
-  uj_output.result = res;
   uj_output.err_otbn = err_otbn;
   uj_output.err_ibx = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
-  RESP_OK(ujson_serialize_otbn_fi_result_t, uj, &uj_output);
+  RESP_OK(ujson_serialize_otbn_fi_keys_t, uj, &uj_output);
   return OK_STATUS();
 }
 
