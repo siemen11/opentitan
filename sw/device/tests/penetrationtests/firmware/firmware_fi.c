@@ -16,6 +16,7 @@
 #include "sw/device/tests/penetrationtests/json/ibex_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/otbn_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/otp_fi_commands.h"
+#include "sw/device/tests/penetrationtests/json/rng_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/rom_fi_commands.h"
 
 // Include handlers
@@ -23,6 +24,7 @@
 #include "fi/ibex_fi.h"
 #include "fi/otbn_fi.h"
 #include "fi/otp_fi.h"
+#include "fi/rng_fi.h"
 #include "fi/rom_fi.h"
 #include "lib/extclk_sca_fi.h"
 
@@ -47,6 +49,9 @@ status_t process_cmd(ujson_t *uj) {
         break;
       case kPenetrationtestCommandOtpFi:
         RESP_ERR(uj, handle_otp_fi(uj));
+        break;
+      case kPenetrationtestCommandRngFi:
+        RESP_ERR(uj, handle_rng_fi(uj));
         break;
       case kPenetrationtestCommandRomFi:
         RESP_ERR(uj, handle_rom_fi(uj));

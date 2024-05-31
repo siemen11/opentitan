@@ -24,6 +24,7 @@ extern "C" {
     value(_, OtbnSca) \
     value(_, OtpFi) \
     value(_, PrngSca) \
+    value(_, RngFi) \
     value(_, RomFi) \
     value(_, Sha3Sca) \
     value(_, TriggerSca)

@@ -104,6 +104,31 @@ cc_library(
 )
 
 cc_library(
+    name = "rng_fi",
+    srcs = ["rng_fi.c"],
+    hdrs = ["rng_fi.h"],
+    deps = [
+        "//sw/device/lib/base:memory",
+        "//sw/device/lib/base:status",
+        "//sw/device/lib/dif:csrng",
+        "//sw/device/lib/dif:csrng_shared",
+        "//sw/device/lib/dif:edn",
+        "//sw/device/lib/dif:entropy_src",
+        "//sw/device/lib/dif:rv_core_ibex",
+        "//sw/device/lib/runtime:log",
+        "//sw/device/lib/testing:csrng_testutils",
+        "//sw/device/lib/testing:edn_testutils",
+        "//sw/device/lib/testing:entropy_testutils",
+        "//sw/device/lib/testing:rv_core_ibex_testutils",
+        "//sw/device/lib/testing/test_framework:ujson_ottf",
+        "//sw/device/lib/ujson",
+        "//sw/device/sca/lib:sca",
+        "//sw/device/tests/penetrationtests/firmware/lib:sca_lib",
+        "//sw/device/tests/penetrationtests/json:rng_fi_commands",
+    ],
+)
+
+cc_library(
     name = "rom_fi",
     srcs = ["rom_fi.c"],
     hdrs = ["rom_fi.h"],
