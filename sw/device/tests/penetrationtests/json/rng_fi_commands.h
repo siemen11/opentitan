@@ -13,7 +13,9 @@ extern "C" {
 
 #define RNGFI_SUBCOMMAND(_, value) \
     value(_, CsrngInit) \
-    value(_, CsrngBias)
+    value(_, CsrngBias) \
+    value(_, EdnInit) \
+    value(_, EdnBusAck)
 UJSON_SERDE_ENUM(RngFiSubcommand, rng_fi_subcommand_t, RNGFI_SUBCOMMAND);
 
 #define RNGFI_CSRNG_OUTPUT(field, string) \
@@ -22,6 +24,13 @@ UJSON_SERDE_ENUM(RngFiSubcommand, rng_fi_subcommand_t, RNGFI_SUBCOMMAND);
     field(alerts, uint32_t, 3) \
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(RngFiCsrngOutput, rng_fi_csrng_output_t, RNGFI_CSRNG_OUTPUT);
+
+#define RNGFI_EDN_ACK(field, string) \
+    field(collisions, uint32_t) \
+    field(rand, uint32_t, 16) \
+    field(alerts, uint32_t, 3) \
+    field(err_status, uint32_t)
+UJSON_SERDE_STRUCT(RngFiEdnAck, rng_fi_edn_ack_t, RNGFI_EDN_ACK);
 
 // clang-format on
 

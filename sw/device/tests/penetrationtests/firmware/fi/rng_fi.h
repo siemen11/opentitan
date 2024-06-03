@@ -9,6 +9,27 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * rng_fi_edn_bus_ack command handler.
+ *
+ * Generate random data. Try to inject fault during bus ack to receive the same
+ * random data multiple times.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_rng_fi_edn_bus_ack(ujson_t *uj);
+
+/**
+ * Initializes the trigger and configures the device for the EDN FI test.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_rng_fi_edn_init(ujson_t *uj);
+
+/**
  * csrng_bias command handler.
  *
  * Generate known data using the CSRNG.
@@ -18,7 +39,7 @@
  * @param uj An initialized uJSON context.
  * @return OK or error.
  */
-status_t handle_csrng_bias(ujson_t *uj);
+status_t handle_rng_fi_csrng_bias(ujson_t *uj);
 
 /**
  * Initializes the trigger and configures the device for the CSRNG FI test.

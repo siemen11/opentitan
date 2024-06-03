@@ -29,13 +29,106 @@
 #define NOP30 NOP10 NOP10 NOP10
 
 enum {
+  kEdnKatTimeout = (10 * 1000 * 1000),
   kCsrngExpectedOutputLen = 16,
+  kEdnBusAckMaxData = 64,
 };
 
 static dif_rv_core_ibex_t rv_core_ibex;
+static dif_entropy_src_t entropy_src;
 static dif_csrng_t csrng;
+static dif_edn_t edn0;
+static dif_edn_t edn1;
 
-status_t handle_csrng_bias(ujson_t *uj) {
+status_t handle_rng_fi_edn_bus_ack(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+  // Enable entropy complex, CSRNG and EDN so Ibex can get entropy.
+  // Configure entropy in auto_mode to avoid starving the system from entropy,
+  // given that boot mode entropy has a limited number of generated bits.
+  TRY(entropy_testutils_auto_mode_init());
+
+  uint32_t ibex_rnd_data[kEdnBusAckMaxData];
+
+  // Inject faults during generating and receiving random data.
+  // Goal is to manipulate ACK on bus to trigger that the same
+  // data chunk is transmitted multiple times.
+  sca_set_trigger_high();
+  asm volatile(NOP10);
+  for (size_t it = 0; it < kEdnBusAckMaxData; it++) {
+    TRY(rv_core_ibex_testutils_get_rnd_data(&rv_core_ibex, kEdnKatTimeout,
+                                            &ibex_rnd_data[it]));
+  }
+  sca_set_trigger_low();
+
+  // Check if there are any collisions.
+  rng_fi_edn_ack_t uj_output;
+  memset(uj_output.rand, 0, sizeof(uj_output.rand));
+  size_t collisions = 0;
+  for (size_t outer = 0; outer < kEdnBusAckMaxData; outer++) {
+    for (size_t inner = 0; inner < kEdnBusAckMaxData; inner++) {
+      if (outer != inner) {
+        if (ibex_rnd_data[outer] == ibex_rnd_data[inner]) {
+          collisions++;
+          if (collisions < 16) {
+            uj_output.rand[collisions] = ibex_rnd_data[outer];
+          }
+        }
+      }
+    }
+  }
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Send result & ERR_STATUS to host.
+  uj_output.collisions = collisions;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  uj_output.err_status = err_ibx;
+  RESP_OK(ujson_serialize_rng_fi_edn_ack_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+status_t handle_rng_fi_edn_init(ujson_t *uj) {
+  sca_select_trigger_type(kScaTriggerTypeSw);
+  // As we are using the software defined trigger, the first argument of
+  // sca_init is not needed. kScaTriggerSourceAes is selected as a placeholder.
+  sca_init(kScaTriggerSourceAes, kScaPeripheralIoDiv4 | kScaPeripheralEntropy |
+                                     kScaPeripheralCsrng | kScaPeripheralEdn);
+
+  // Disable the instruction cache and dummy instructions for FI attacks.
+  sca_configure_cpu();
+
+  // Configure Ibex to allow reading ERR_STATUS register.
+  TRY(dif_rv_core_ibex_init(
+      mmio_region_from_addr(TOP_EARLGREY_RV_CORE_IBEX_CFG_BASE_ADDR),
+      &rv_core_ibex));
+
+  // Configure the alert handler. Alerts triggered by IP blocks are captured
+  // and reported to the test.
+  sca_configure_alert_handler();
+
+  // Initialize peripherals used in this FI test.
+  TRY(dif_entropy_src_init(
+      mmio_region_from_addr(TOP_EARLGREY_ENTROPY_SRC_BASE_ADDR), &entropy_src));
+  TRY(dif_csrng_init(mmio_region_from_addr(TOP_EARLGREY_CSRNG_BASE_ADDR),
+                     &csrng));
+  TRY(dif_edn_init(mmio_region_from_addr(TOP_EARLGREY_EDN0_BASE_ADDR), &edn0));
+  TRY(dif_edn_init(mmio_region_from_addr(TOP_EARLGREY_EDN1_BASE_ADDR), &edn1));
+
+  // Read device ID and return to host.
+  penetrationtest_device_id_t uj_output;
+  TRY(sca_read_device_id(uj_output.device_id));
+  RESP_OK(ujson_serialize_penetrationtest_device_id_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+status_t handle_rng_fi_csrng_bias(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -129,7 +222,11 @@ status_t handle_rng_fi(ujson_t *uj) {
     case kRngFiSubcommandCsrngInit:
       return handle_rng_fi_csrng_init(uj);
     case kRngFiSubcommandCsrngBias:
-      return handle_csrng_bias(uj);
+      return handle_rng_fi_csrng_bias(uj);
+    case kRngFiSubcommandEdnInit:
+      return handle_rng_fi_edn_init(uj);
+    case kRngFiSubcommandEdnBusAck:
+      return handle_rng_fi_edn_bus_ack(uj);
     default:
       LOG_ERROR("Unrecognized RNG FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
