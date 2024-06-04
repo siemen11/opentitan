@@ -15,7 +15,7 @@ extern "C" {
     value(_, CsrngInit) \
     value(_, CsrngBias) \
     value(_, EdnInit) \
-    value(_, EdnBusAck)
+    value(_, EdnRespAck)
 UJSON_SERDE_ENUM(RngFiSubcommand, rng_fi_subcommand_t, RNGFI_SUBCOMMAND);
 
 #define CRYPTOFI_CSRNG_MODE(field, string) \

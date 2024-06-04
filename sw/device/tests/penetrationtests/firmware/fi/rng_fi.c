@@ -40,7 +40,7 @@ static dif_csrng_t csrng;
 static dif_edn_t edn0;
 static dif_edn_t edn1;
 
-status_t handle_rng_fi_edn_bus_ack(ujson_t *uj) {
+status_t handle_rng_fi_edn_resp_ack(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
   // Enable entropy complex, CSRNG and EDN so Ibex can get entropy.
@@ -250,8 +250,8 @@ status_t handle_rng_fi(ujson_t *uj) {
       return handle_rng_fi_csrng_bias(uj);
     case kRngFiSubcommandEdnInit:
       return handle_rng_fi_edn_init(uj);
-    case kRngFiSubcommandEdnBusAck:
-      return handle_rng_fi_edn_bus_ack(uj);
+    case kRngFiSubcommandEdnRespAck:
+      return handle_rng_fi_edn_resp_ack(uj);
     default:
       LOG_ERROR("Unrecognized RNG FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
