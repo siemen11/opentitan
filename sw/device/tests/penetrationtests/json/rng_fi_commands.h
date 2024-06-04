@@ -18,6 +18,13 @@ extern "C" {
     value(_, EdnBusAck)
 UJSON_SERDE_ENUM(RngFiSubcommand, rng_fi_subcommand_t, RNGFI_SUBCOMMAND);
 
+#define CRYPTOFI_CSRNG_MODE(field, string) \
+    field(start_trigger, bool) \
+    field(valid_trigger, bool) \
+    field(read_trigger, bool) \
+    field(all_trigger, bool)
+UJSON_SERDE_STRUCT(CryptoFiCsrngMode, crypto_fi_csrng_mode_t, CRYPTOFI_CSRNG_MODE);
+
 #define RNGFI_CSRNG_OUTPUT(field, string) \
     field(res, uint32_t) \
     field(rand, uint32_t, 16) \
