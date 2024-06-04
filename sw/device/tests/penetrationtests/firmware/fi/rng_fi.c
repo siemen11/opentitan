@@ -129,6 +129,9 @@ status_t handle_rng_fi_edn_init(ujson_t *uj) {
 }
 
 status_t handle_rng_fi_csrng_bias(ujson_t *uj) {
+  // Get the test mode.
+  crypto_fi_csrng_mode_t uj_data;
+  TRY(ujson_deserialize_crypto_fi_csrng_mode_t(uj, &uj_data));
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
@@ -147,12 +150,34 @@ status_t handle_rng_fi_csrng_bias(ujson_t *uj) {
 
   // FI code target.
   uint32_t rand_data_got[kCsrngExpectedOutputLen];
-  sca_set_trigger_high();
-  asm volatile(NOP30);
-  TRY(csrng_testutils_cmd_generate_run(&csrng, rand_data_got,
-                                       kCsrngExpectedOutputLen));
-  asm volatile(NOP30);
-  sca_set_trigger_low();
+  TRY(csrng_testutils_cmd_ready_wait(&csrng));
+
+  if (uj_data.all_trigger || uj_data.start_trigger) {
+    sca_set_trigger_high();
+  }
+  TRY(dif_csrng_generate_start(&csrng, kCsrngExpectedOutputLen));
+  if (uj_data.start_trigger) {
+    sca_set_trigger_low();
+  }
+
+  if (uj_data.valid_trigger) {
+    sca_set_trigger_high();
+  }
+  dif_csrng_output_status_t output_status;
+  do {
+    TRY(dif_csrng_get_output_status(&csrng, &output_status));
+  } while (!output_status.valid_data);
+  if (uj_data.valid_trigger) {
+    sca_set_trigger_low();
+  }
+
+  if (uj_data.read_trigger) {
+    sca_set_trigger_high();
+  }
+  TRY(dif_csrng_generate_read(&csrng, rand_data_got, kCsrngExpectedOutputLen));
+  if (uj_data.all_trigger || uj_data.read_trigger) {
+    sca_set_trigger_low();
+  }
 
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
