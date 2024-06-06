@@ -32,6 +32,9 @@ enum {
   kEdnKatTimeout = (10 * 1000 * 1000),
   kCsrngExpectedOutputLen = 16,
   kEdnBusAckMaxData = 64,
+  kEdnKatMaxClen = 12,
+  kEdnKatOutputLen = 16,
+  kEdnKatWordsPerBlock = 4,
 };
 
 static dif_rv_core_ibex_t rv_core_ibex;
@@ -39,6 +42,121 @@ static dif_entropy_src_t entropy_src;
 static dif_csrng_t csrng;
 static dif_edn_t edn0;
 static dif_edn_t edn1;
+
+// Seed material for the EDN KAT instantiate command.
+const dif_edn_seed_material_t kEdnKatSeedMaterialInstantiate = {
+    .len = kEdnKatMaxClen,
+    .data = {0x73bec010, 0x9262474c, 0x16a30f76, 0x531b51de, 0x2ee494e5,
+             0xdfec9db3, 0xcb7a879d, 0x5600419c, 0xca79b0b0, 0xdda33b5c,
+             0xa468649e, 0xdf5d73fa},
+};
+// Seed material for the EDN KAT reseed command.
+const dif_edn_seed_material_t kEdnKatSeedMaterialReseed = {
+    .len = kEdnKatMaxClen,
+    .data = {0x73bec010, 0x9262474c, 0x16a30f76, 0x531b51de, 0x2ee494e5,
+             0xdfec9db3, 0xcb7a879d, 0x5600419c, 0xca79b0b0, 0xdda33b5c,
+             0xa468649e, 0xdf5d73fa},
+};
+// Seed material for the EDN KAT generate command.
+const dif_edn_seed_material_t kEdnKatSeedMaterialGenerate = {
+    .len = 0,
+};
+
+static dif_edn_auto_params_t kat_auto_params_build(void) {
+  return (dif_edn_auto_params_t){
+      .instantiate_cmd =
+          {
+              .cmd = csrng_cmd_header_build(
+                  kCsrngAppCmdInstantiate, kDifCsrngEntropySrcToggleDisable,
+                  kEdnKatSeedMaterialInstantiate.len,
+                  /*generate_len=*/0),
+              .seed_material = kEdnKatSeedMaterialInstantiate,
+          },
+      .reseed_cmd =
+          {
+              .cmd = csrng_cmd_header_build(
+                  kCsrngAppCmdReseed, kDifCsrngEntropySrcToggleDisable,
+                  kEdnKatSeedMaterialReseed.len,
+                  /*generate_len=*/0),
+              .seed_material = kEdnKatSeedMaterialReseed,
+          },
+      .generate_cmd =
+          {
+              .cmd = csrng_cmd_header_build(
+                  kCsrngAppCmdGenerate, kDifCsrngEntropySrcToggleDisable,
+                  kEdnKatSeedMaterialGenerate.len,
+                  /*generate_len=*/
+                  kEdnKatOutputLen / kEdnKatWordsPerBlock),
+              .seed_material = kEdnKatSeedMaterialGenerate,
+          },
+      .reseed_interval = 32,
+  };
+}
+
+status_t handle_rng_fi_edn_bias(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  dif_edn_auto_params_t edn_params =
+      edn_testutils_auto_params_build(true, /*res_itval=*/0, /*glen_val=*/0);
+  // Disable the entropy complex.
+  TRY(entropy_testutils_stop_all());
+  // Enable ENTROPY_SRC in FIPS mode.
+  TRY(dif_entropy_src_configure(
+      &entropy_src, entropy_testutils_config_default(), kDifToggleEnabled));
+  // Enable CSRNG.
+  TRY(dif_csrng_configure(&csrng));
+  // Enable EDN1 in auto request mode.
+  TRY(dif_edn_set_auto_mode(&edn1, edn_params));
+  // Enable EDN0 in auto request mode.
+  TRY(dif_edn_set_auto_mode(&edn0, kat_auto_params_build()));
+
+  uint32_t ibex_rnd_data_got[kEdnKatOutputLen];
+
+  sca_set_trigger_high();
+  asm volatile(NOP30);
+  for (size_t it = 0; it < kEdnKatOutputLen; it++) {
+    TRY(rv_core_ibex_testutils_get_rnd_data(&rv_core_ibex, kEdnKatTimeout, &ibex_rnd_data_got[it]));
+  }
+  sca_set_trigger_low();
+
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Expected output data for the EDN KAT.
+  uint32_t kExpectedOutput[kEdnKatOutputLen] = {
+      0xe48bb8cb, 0x1012c84c, 0x5af8a7f1, 0xd1c07cd9, 0xdf82ab22, 0x771c619b,
+      0xd40fccb1, 0x87189e99, 0x510494b3, 0x64f7ac0c, 0x2581f391, 0x80b1dc2f,
+      0x793e01c5, 0x87b107ae, 0xdb17514c, 0xa43c41b7,
+  };
+  rng_fi_edn_t uj_output;
+  uj_output.collisions = 0;
+  memset(uj_output.rand, 0, sizeof(uj_output.rand));
+  for (size_t it_outer = 0; it_outer < kEdnKatOutputLen; it_outer++) {
+    for (size_t it_inner = 0; it_inner < kEdnKatOutputLen; it_inner++) {
+      if (ibex_rnd_data_got[it_inner] == kExpectedOutput[it_outer]) {
+        uj_output.collisions++;
+      }
+        if (uj_output.collisions < 16) {
+          uj_output.rand[uj_output.collisions] = ibex_rnd_data_got[it_inner];
+          uj_output.collisions++;
+        }
+      //  break;
+     // }
+    }
+  }
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Send result & ERR_STATUS to host.
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  uj_output.err_status = err_ibx;
+  RESP_OK(ujson_serialize_rng_fi_edn_t, uj, &uj_output);
+  return OK_STATUS();
+}
 
 status_t handle_rng_fi_edn_resp_ack(ujson_t *uj) {
   // Clear registered alerts in alert handler.
@@ -54,7 +172,7 @@ status_t handle_rng_fi_edn_resp_ack(ujson_t *uj) {
   // Goal is to manipulate ACK on bus to trigger that the same
   // data chunk is transmitted multiple times.
   sca_set_trigger_high();
-  asm volatile(NOP10);
+  asm volatile(NOP30);
   for (size_t it = 0; it < kEdnBusAckMaxData; it++) {
     TRY(rv_core_ibex_testutils_get_rnd_data(&rv_core_ibex, kEdnKatTimeout,
                                             &ibex_rnd_data[it]));
@@ -62,7 +180,7 @@ status_t handle_rng_fi_edn_resp_ack(ujson_t *uj) {
   sca_set_trigger_low();
 
   // Check if there are any collisions.
-  rng_fi_edn_ack_t uj_output;
+  rng_fi_edn_t uj_output;
   memset(uj_output.rand, 0, sizeof(uj_output.rand));
   size_t collisions = 0;
   for (size_t outer = 0; outer < kEdnBusAckMaxData; outer++) {
@@ -89,7 +207,7 @@ status_t handle_rng_fi_edn_resp_ack(ujson_t *uj) {
   uj_output.collisions = collisions;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   uj_output.err_status = err_ibx;
-  RESP_OK(ujson_serialize_rng_fi_edn_ack_t, uj, &uj_output);
+  RESP_OK(ujson_serialize_rng_fi_edn_t, uj, &uj_output);
   return OK_STATUS();
 }
 
@@ -252,6 +370,8 @@ status_t handle_rng_fi(ujson_t *uj) {
       return handle_rng_fi_edn_init(uj);
     case kRngFiSubcommandEdnRespAck:
       return handle_rng_fi_edn_resp_ack(uj);
+    case kRngFiSubcommandEdnBias:
+      return handle_rng_fi_edn_bias(uj);
     default:
       LOG_ERROR("Unrecognized RNG FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();

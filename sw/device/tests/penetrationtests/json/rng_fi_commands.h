@@ -15,7 +15,8 @@ extern "C" {
     value(_, CsrngInit) \
     value(_, CsrngBias) \
     value(_, EdnInit) \
-    value(_, EdnRespAck)
+    value(_, EdnRespAck) \
+    value(_, EdnBias)
 UJSON_SERDE_ENUM(RngFiSubcommand, rng_fi_subcommand_t, RNGFI_SUBCOMMAND);
 
 #define CRYPTOFI_CSRNG_MODE(field, string) \
@@ -32,12 +33,12 @@ UJSON_SERDE_STRUCT(CryptoFiCsrngMode, crypto_fi_csrng_mode_t, CRYPTOFI_CSRNG_MOD
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(RngFiCsrngOutput, rng_fi_csrng_output_t, RNGFI_CSRNG_OUTPUT);
 
-#define RNGFI_EDN_ACK(field, string) \
+#define RNGFI_EDN(field, string) \
     field(collisions, uint32_t) \
     field(rand, uint32_t, 16) \
     field(alerts, uint32_t, 3) \
     field(err_status, uint32_t)
-UJSON_SERDE_STRUCT(RngFiEdnAck, rng_fi_edn_ack_t, RNGFI_EDN_ACK);
+UJSON_SERDE_STRUCT(RngFiEdn, rng_fi_edn_t, RNGFI_EDN);
 
 // clang-format on
 
