@@ -151,9 +151,6 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
     otbn_dmem_read(1, kOtbnAppKeySideloadks1h, &key_share_1_h_ref);
 
     key_sideloading_init = true;
-
-    // Clear OTBN memory.
-    TRY(clear_otbn());
   }
 
   // FI code target.
@@ -194,9 +191,6 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
       (key_share_1_h != key_share_1_h_ref)) {
     uj_output.res = 1;
   }
-
-  // Clear OTBN memory.
-  TRY(clear_otbn());
 
   // Send result & ERR_STATUS to host.
   uj_output.err_otbn = err_otbn;
