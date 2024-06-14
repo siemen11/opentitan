@@ -5,11 +5,13 @@
 #include "sw/device/tests/penetrationtests/firmware/sca/otbn_sca.h"
 
 #include "ecc256_keygen_sca.h"
+#include "sw/device/lib/arch/boot_stage.h"
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/base/status.h"
 #include "sw/device/lib/crypto/drivers/keymgr.h"
 #include "sw/device/lib/crypto/impl/keyblob.h"
 #include "sw/device/lib/crypto/impl/status.h"
+#include "sw/device/lib/dif/dif_otbn.h"
 #include "sw/device/lib/runtime/log.h"
 #include "sw/device/lib/testing/entropy_testutils.h"
 #include "sw/device/lib/testing/keymgr_testutils.h"
@@ -21,89 +23,117 @@
 #include "sw/device/tests/penetrationtests/firmware/lib/sca_lib.h"
 #include "sw/device/tests/penetrationtests/json/otbn_sca_commands.h"
 
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+#include "otbn_regs.h"  // Generated.
+
+static dif_otbn_t otbn;
+static dif_keymgr_t keymgr;
+static dif_kmac_t kmac;
+
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
 #define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
 #define NOP30 NOP10 NOP10 NOP10
 
-// Data structs for key sideloading test.
-OTBN_DECLARE_APP_SYMBOLS(otbn_key_sideload);
-OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload, k_s0_l);
-OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload, k_s0_h);
-OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload, k_s1_l);
-OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload, k_s1_h);
-const otbn_app_t kOtbnAppKeySideloadSCA = OTBN_APP_T_INIT(otbn_key_sideload);
-static const otbn_addr_t kOtbnAppKeySideloadScaks0l =
-    OTBN_ADDR_T_INIT(otbn_key_sideload, k_s0_l);
-static const otbn_addr_t kOtbnAppKeySideloadScaks0h =
-    OTBN_ADDR_T_INIT(otbn_key_sideload, k_s0_h);
-static const otbn_addr_t kOtbnAppKeySideloadScaks1l =
-    OTBN_ADDR_T_INIT(otbn_key_sideload, k_s1_l);
-static const otbn_addr_t kOtbnAppKeySideloadScaks1h =
-    OTBN_ADDR_T_INIT(otbn_key_sideload, k_s1_h);
-
-static const otcrypto_key_config_t kPrivateKeyConfig = {
-    .version = kOtcryptoLibVersion1,
-    .key_mode = kOtcryptoKeyModeEcdsa,
-    .key_length = 256 / 8,
-    .hw_backed = kHardenedBoolTrue,
-    .security_level = kOtcryptoKeySecurityLevelLow,
+enum {
+  kKeySideloadNumIt = 16,
 };
 
+// Data structs for key sideloading test.
+OTBN_DECLARE_APP_SYMBOLS(otbn_key_sideload_sca);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload_sca, k_s0_l);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload_sca, k_s0_h);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload_sca, k_s1_l);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload_sca, k_s1_h);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload_sca, k_l);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_key_sideload_sca, k_h);
+const otbn_app_t kOtbnAppKeySideloadSca =
+    OTBN_APP_T_INIT(otbn_key_sideload_sca);
+static const otbn_addr_t kOtbnAppKeySideloadks0l =
+    OTBN_ADDR_T_INIT(otbn_key_sideload_sca, k_s0_l);
+static const otbn_addr_t kOtbnAppKeySideloadks0h =
+    OTBN_ADDR_T_INIT(otbn_key_sideload_sca, k_s0_h);
+static const otbn_addr_t kOtbnAppKeySideloadks1l =
+    OTBN_ADDR_T_INIT(otbn_key_sideload_sca, k_s1_l);
+static const otbn_addr_t kOtbnAppKeySideloadks1h =
+    OTBN_ADDR_T_INIT(otbn_key_sideload_sca, k_s1_h);
+static const otbn_addr_t kOtbnAppKeySideloadkl =
+    OTBN_ADDR_T_INIT(otbn_key_sideload_sca, k_l);
+static const otbn_addr_t kOtbnAppKeySideloadkh =
+    OTBN_ADDR_T_INIT(otbn_key_sideload_sca, k_h);
+
+/**
+ * Clears the OTBN DMEM and IMEM.
+ *
+ * @returns OK or error.
+ */
+static status_t clear_otbn(void) {
+  // Clear OTBN memory.
+  TRY(otbn_dmem_sec_wipe());
+  TRY(otbn_imem_sec_wipe());
+
+  return OK_STATUS();
+}
+
 status_t handle_otbn_sca_key_sideload_fvsr(ujson_t *uj) {
-  // Get fixed data.
-  penetrationtest_otbn_sca_fixed_key_t uj_data;
-  TRY(ujson_deserialize_penetrationtest_otbn_sca_fixed_key_t(uj, &uj_data));
+  // Get fixed seed.
+  penetrationtest_otbn_sca_fixed_seed_t uj_data;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_fixed_seed_t(uj, &uj_data));
 
-  // Data buffers.
-  uint32_t key_buffer[16];
-
-  uint32_t key_share_0_l[16];
-  uint32_t key_share_0_h[16];
-  uint32_t key_share_1_l[16];
-  uint32_t key_share_1_h[16];
+  // Key generation parameters.
+  dif_keymgr_versioned_key_params_t sideload_params[kKeySideloadNumIt];
 
   // Generate FvsR values.
   bool sample_fixed = true;
-  for (size_t it = 0; it < 16; it++) {
+  for (size_t it = 0; it < kKeySideloadNumIt; it++) {
+    sideload_params[it].version = 0x0;
+    sideload_params[it].dest = kDifKeymgrVersionedKeyDestOtbn;
+    memset(sideload_params[it].salt, 0, sizeof(sideload_params[it].salt));
     if (sample_fixed) {
-      key_buffer[it] = uj_data.fixed_key;
+      sideload_params[it].salt[0] = uj_data.fixed_seed;
     } else {
-      key_buffer[it] = prng_rand_uint32();
+      sideload_params[it].salt[0] = prng_rand_uint32();
     }
     sample_fixed = prng_rand_uint32() & 0x1;
   }
-  keymgr_diversification_t diversification;
+
+  otbn_load_app(kOtbnAppKeySideloadSca);
+
+  uint32_t key_share_0_l[kKeySideloadNumIt], key_share_0_h[kKeySideloadNumIt];
+  uint32_t key_share_1_l[16], key_share_1_h[kKeySideloadNumIt];
+  uint32_t key_l[kKeySideloadNumIt], key_h[kKeySideloadNumIt];
+
   // SCA code target.
-  for (size_t it = 0; it < 16; it++) {
-    otcrypto_blinded_key_t blinded_key = {
-        .config = kPrivateKeyConfig,
-        .keyblob_length = sizeof(key_buffer[it]),
-        .keyblob = &key_buffer[it],
-    };
-    TRY(keyblob_to_keymgr_diversification(&blinded_key, &diversification));
-    otbn_load_app(kOtbnAppKeySideloadSCA);
+  for (size_t it = 0; it < kKeySideloadNumIt; it++) {
+    TRY(keymgr_testutils_generate_versioned_key(&keymgr, sideload_params[it]));
+
+    TRY(dif_otbn_set_ctrl_software_errs_fatal(&otbn, /*enable=*/false));
+
     sca_set_trigger_high();
     // Give the trigger time to rise.
     asm volatile(NOP30);
-    TRY(keymgr_generate_key_otbn(diversification));
     otbn_execute();
     otbn_busy_wait_for_done();
     sca_set_trigger_low();
     asm volatile(NOP30);
-    otbn_dmem_read(1, kOtbnAppKeySideloadScaks0l, &key_share_0_l[it]);
-    otbn_dmem_read(1, kOtbnAppKeySideloadScaks0h, &key_share_0_h[it]);
-    otbn_dmem_read(1, kOtbnAppKeySideloadScaks1l, &key_share_1_l[it]);
-    otbn_dmem_read(1, kOtbnAppKeySideloadScaks1h, &key_share_1_h[it]);
+
+    otbn_dmem_read(1, kOtbnAppKeySideloadks0l, &key_share_0_l[it]);
+    otbn_dmem_read(1, kOtbnAppKeySideloadks0h, &key_share_0_h[it]);
+    otbn_dmem_read(1, kOtbnAppKeySideloadks1l, &key_share_1_l[it]);
+    otbn_dmem_read(1, kOtbnAppKeySideloadks1h, &key_share_1_h[it]);
+    otbn_dmem_read(1, kOtbnAppKeySideloadkl, &key_l[it]);
+    otbn_dmem_read(1, kOtbnAppKeySideloadkh, &key_h[it]);
   }
 
-  // Write back keys to host.
+  // Write back shares and keys to host.
   penetrationtest_otbn_sca_key_t uj_output;
-  for (size_t it = 0; it < 16; it++) {
-    uj_output.key[0] = key_share_0_l[it];
-    uj_output.key[1] = key_share_0_h[it];
-    uj_output.key[2] = key_share_1_l[it];
-    uj_output.key[3] = key_share_1_h[it];
+  for (size_t it = 0; it < kKeySideloadNumIt; it++) {
+    uj_output.shares[0] = key_share_0_l[it];
+    uj_output.shares[1] = key_share_0_h[it];
+    uj_output.shares[2] = key_share_1_l[it];
+    uj_output.shares[3] = key_share_1_h[it];
+    uj_output.keys[0] = key_l[it];
+    uj_output.keys[1] = key_h[it];
     RESP_OK(ujson_serialize_penetrationtest_otbn_sca_key_t, uj, &uj_output);
   }
 
@@ -111,12 +141,21 @@ status_t handle_otbn_sca_key_sideload_fvsr(ujson_t *uj) {
 }
 
 status_t handle_otbn_sca_init_keymgr(ujson_t *uj) {
-  dif_keymgr_t keymgr;
-  dif_kmac_t kmac;
-  TRY(keymgr_testutils_startup(&keymgr, &kmac));
-  TRY(keymgr_testutils_advance_state(&keymgr, &kOwnerIntParams));
-  TRY(keymgr_testutils_advance_state(&keymgr, &kOwnerRootKeyParams));
-  TRY(keymgr_testutils_check_state(&keymgr, kDifKeymgrStateOwnerRootKey));
+  if (kBootStage != kBootStageOwner) {
+    TRY(keymgr_testutils_startup(&keymgr, &kmac));
+    // Advance to OwnerIntermediateKey state.
+    TRY(keymgr_testutils_advance_state(&keymgr, &kOwnerIntParams));
+    TRY(keymgr_testutils_check_state(&keymgr,
+                                     kDifKeymgrStateOwnerIntermediateKey));
+    LOG_INFO("Keymgr entered OwnerIntKey State");
+  } else {
+    TRY(dif_keymgr_init(mmio_region_from_addr(TOP_EARLGREY_KEYMGR_BASE_ADDR),
+                        &keymgr));
+    TRY(keymgr_testutils_check_state(&keymgr, kDifKeymgrStateOwnerRootKey));
+  }
+
+  dif_otbn_t otbn;
+  TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
 
   return OK_STATUS();
 }
@@ -128,7 +167,11 @@ status_t handle_otbn_sca_init(ujson_t *uj) {
 
   sca_init(kScaTriggerSourceOtbn, kScaPeripheralEntropy | kScaPeripheralIoDiv4 |
                                       kScaPeripheralOtbn | kScaPeripheralCsrng |
-                                      kScaPeripheralEdn | kScaPeripheralHmac);
+                                      kScaPeripheralEdn | kScaPeripheralHmac |
+                                      kScaPeripheralKmac);
+
+  // Init the OTBN core.
+  TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
 
   // Load p256 keygen from seed app into OTBN.
   if (otbn_load_app(kOtbnAppP256KeyFromSeed).value != OTCRYPTO_OK.value) {
@@ -138,6 +181,11 @@ status_t handle_otbn_sca_init(ujson_t *uj) {
   // Disable the instruction cache and dummy instructions for better SCA
   // measurements.
   sca_configure_cpu();
+
+  // Read device ID and return to host.
+  penetrationtest_device_id_t uj_output;
+  TRY(sca_read_device_id(uj_output.device_id));
+  RESP_OK(ujson_serialize_penetrationtest_device_id_t, uj, &uj_output);
 
   return OK_STATUS();
 }

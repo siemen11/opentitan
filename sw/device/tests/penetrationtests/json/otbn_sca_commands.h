@@ -48,12 +48,13 @@ UJSON_SERDE_STRUCT(PenetrationtestOtbnScaSeed, penetrationtest_otbn_sca_seed_t, 
 UJSON_SERDE_STRUCT(PenetrationtestOtbnScaConstant, penetrationtest_otbn_sca_constant_t, OTBN_SCA_CONSTANT);
 
 #define OTBN_SCA_KEY(field, string) \
-    field(key, uint32_t, 4)
+    field(shares, uint32_t, 4) \
+    field(keys, uint32_t, 2)
 UJSON_SERDE_STRUCT(PenetrationtestOtbnScaKey, penetrationtest_otbn_sca_key_t, OTBN_SCA_KEY);
 
-#define OTBN_SCA_FIXED_KEY(field, string) \
-    field(fixed_key, uint32_t)
-UJSON_SERDE_STRUCT(PenetrationtestOtbnScaFixedKey, penetrationtest_otbn_sca_fixed_key_t, OTBN_SCA_FIXED_KEY);
+#define OTBN_SCA_FIXED_SEED(field, string) \
+    field(fixed_seed, uint32_t)
+UJSON_SERDE_STRUCT(PenetrationtestOtbnScaFixedKey, penetrationtest_otbn_sca_fixed_seed_t, OTBN_SCA_FIXED_SEED);
 
 // clang-format on
 
