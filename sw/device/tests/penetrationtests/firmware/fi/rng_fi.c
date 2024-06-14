@@ -133,17 +133,14 @@ status_t handle_rng_fi_edn_bias(ujson_t *uj) {
   rng_fi_edn_t uj_output;
   uj_output.collisions = 0;
   memset(uj_output.rand, 0, sizeof(uj_output.rand));
-  for (size_t it_outer = 0; it_outer < kEdnKatOutputLen; it_outer++) {
-    for (size_t it_inner = 0; it_inner < kEdnKatOutputLen; it_inner++) {
-      if (ibex_rnd_data_got[it_inner] == kExpectedOutput[it_outer]) {
+  for (size_t it_got = 0; it_got < kEdnKatOutputLen; it_got++) {
+    for (size_t it_ref = 0; it_ref < kEdnKatOutputLen; it_ref++) {
+      if (ibex_rnd_data_got[it_got] == kExpectedOutput[it_ref]) {
+        if (uj_output.collisions < 16) {
+          uj_output.rand[uj_output.collisions] = ibex_rnd_data_got[it_got];
+        }
         uj_output.collisions++;
       }
-      if (uj_output.collisions < 16) {
-        uj_output.rand[uj_output.collisions] = ibex_rnd_data_got[it_inner];
-        uj_output.collisions++;
-      }
-      //  break;
-      // }
     }
   }
 
