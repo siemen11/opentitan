@@ -66,18 +66,18 @@ static dif_edn_auto_params_t kat_auto_params_build(void) {
   return (dif_edn_auto_params_t){
       .instantiate_cmd =
           {
-              .cmd = csrng_cmd_header_build(
-                  kCsrngAppCmdInstantiate, kDifCsrngEntropySrcToggleDisable,
-                  kEdnKatSeedMaterialInstantiate.len,
-                  /*generate_len=*/0),
+              .cmd = csrng_cmd_header_build(kCsrngAppCmdInstantiate,
+                                            kDifCsrngEntropySrcToggleDisable,
+                                            kEdnKatSeedMaterialInstantiate.len,
+                                            /*generate_len=*/0),
               .seed_material = kEdnKatSeedMaterialInstantiate,
           },
       .reseed_cmd =
           {
-              .cmd = csrng_cmd_header_build(
-                  kCsrngAppCmdReseed, kDifCsrngEntropySrcToggleDisable,
-                  kEdnKatSeedMaterialReseed.len,
-                  /*generate_len=*/0),
+              .cmd = csrng_cmd_header_build(kCsrngAppCmdReseed,
+                                            kDifCsrngEntropySrcToggleDisable,
+                                            kEdnKatSeedMaterialReseed.len,
+                                            /*generate_len=*/0),
               .seed_material = kEdnKatSeedMaterialReseed,
           },
       .generate_cmd =
@@ -116,10 +116,10 @@ status_t handle_rng_fi_edn_bias(ujson_t *uj) {
   sca_set_trigger_high();
   asm volatile(NOP30);
   for (size_t it = 0; it < kEdnKatOutputLen; it++) {
-    TRY(rv_core_ibex_testutils_get_rnd_data(&rv_core_ibex, kEdnKatTimeout, &ibex_rnd_data_got[it]));
+    TRY(rv_core_ibex_testutils_get_rnd_data(&rv_core_ibex, kEdnKatTimeout,
+                                            &ibex_rnd_data_got[it]));
   }
   sca_set_trigger_low();
-
 
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
@@ -138,12 +138,12 @@ status_t handle_rng_fi_edn_bias(ujson_t *uj) {
       if (ibex_rnd_data_got[it_inner] == kExpectedOutput[it_outer]) {
         uj_output.collisions++;
       }
-        if (uj_output.collisions < 16) {
-          uj_output.rand[uj_output.collisions] = ibex_rnd_data_got[it_inner];
-          uj_output.collisions++;
-        }
+      if (uj_output.collisions < 16) {
+        uj_output.rand[uj_output.collisions] = ibex_rnd_data_got[it_inner];
+        uj_output.collisions++;
+      }
       //  break;
-     // }
+      // }
     }
   }
 
@@ -306,8 +306,8 @@ status_t handle_rng_fi_csrng_bias(ujson_t *uj) {
 
   // Compare with expected data.
   const uint32_t kExpectedOutput[kCsrngExpectedOutputLen] = {
-      932170270, 3480632584, 387346064, 186012424, 899661374, 2795183089,
-      336687633, 3222931513, 1490543709, 3319795384, 3464147855, 1850271046,
+      932170270,  3480632584, 387346064,  186012424,  899661374,  2795183089,
+      336687633,  3222931513, 1490543709, 3319795384, 3464147855, 1850271046,
       1239323641, 2292604615, 3314177342, 1567494162,
   };
   rng_fi_csrng_output_t uj_output;
