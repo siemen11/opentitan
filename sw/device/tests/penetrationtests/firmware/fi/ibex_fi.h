@@ -9,6 +9,19 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * ibex.fi.char.hardened_check_eq_unimps command handler.
+ *
+ * Inject faults during a hardened check is executed. As the values to compare
+ * are not equal, this test is expected to crash the system.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_hardened_check_eq_unimps(ujson_t *uj);
+
+/**
  * otp_ctrl.write_lock command handler.
  *
  * This FI penetration tests executes the following instructions:

@@ -41,7 +41,8 @@ extern "C" {
     value(_, AddressTranslation) \
     value(_, OtpDataRead) \
     value(_, OtpReadLock) \
-    value(_, OtpWriteLock)
+    value(_, OtpWriteLock) \
+    value(_, CharHardenedCheck)
 UJSON_SERDE_ENUM(IbexFiSubcommand, ibex_fi_subcommand_t, IBEXFI_SUBCOMMAND);
 
 #define IBEXFI_TEST_RESULT(field, string) \
