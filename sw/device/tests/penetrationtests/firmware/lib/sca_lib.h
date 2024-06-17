@@ -47,10 +47,10 @@ void sca_configure_alert_handler(void);
  *
  * Can be used to categorize different SCA and FI runs.
  *
- * @param uj An initialized uJSON context.
+ * @param device_id A buffer available to store the device id.
  * @return OK or error.
  */
-status_t sca_read_device_id(ujson_t *uj);
+status_t sca_read_device_id(uint32_t device_id[]);
 
 /**
  * Configures CPU for SCA and FI penetration tests.

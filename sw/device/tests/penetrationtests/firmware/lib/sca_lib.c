@@ -21,7 +21,6 @@
 #include "sw/device/lib/testing/entropy_testutils.h"
 #include "sw/device/lib/testing/rv_plic_testutils.h"
 #include "sw/device/lib/testing/test_framework/ottf_main.h"
-#include "sw/device/lib/testing/test_framework/ujson_ottf.h"
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
 
@@ -222,17 +221,13 @@ void sca_configure_alert_handler(void) {
       &alert_handler, kDifAlertHandlerIrqClassa, kDifToggleEnabled));
 }
 
-status_t sca_read_device_id(ujson_t *uj) {
+status_t sca_read_device_id(uint32_t device_id[]) {
   mmio_region_t lc_reg = mmio_region_from_addr(TOP_EARLGREY_LC_CTRL_BASE_ADDR);
   CHECK_DIF_OK(dif_lc_ctrl_init(lc_reg, &lc));
 
   dif_lc_ctrl_device_id_t lc_device_id;
   CHECK_DIF_OK(dif_lc_ctrl_get_device_id(&lc, &lc_device_id));
-
-  // Send back to the host.
-  penetrationtest_device_id_t uj_output;
-  memcpy(uj_output.device_id, lc_device_id.data, 8 * sizeof(uint32_t));
-  RESP_OK(ujson_serialize_penetrationtest_device_id_t, uj, &uj_output);
+  memcpy(device_id, lc_device_id.data, 8 * sizeof(uint32_t));
 
   return OK_STATUS();
 }

@@ -9,6 +9,64 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * ibex.fi.char.hardened_check_eq_unimps command handler.
+ *
+ * Inject faults during a hardened check is executed. As the values to compare
+ * are not equal, this test is expected to crash the system.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_hardened_check_eq_unimps(ujson_t *uj);
+
+/**
+ * otp_ctrl.write_lock command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Add 10 NOPs to delay the trigger.
+ * - Try writing to the locked Unlock Token field in the Secret0 partition.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_otp_write_lock(ujson_t *uj);
+
+/**
+ * otp_ctrl.read_lock command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Lock the read for VENDOR_TEST, CREATOR_SW_CFG, and OWNER_SW_CFG partition
+ * - Add 10 NOPs to delay the trigger.
+ * - Read VENDOR_TEST, CREATOR_SW_CFG, and OWNER_SW_CFG partition from OTP
+ * - Compare against reference values
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_otp_read_lock(ujson_t *uj);
+
+/**
+ * otp_ctrl.data_read command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Add 10 NOPs to delay the trigger.
+ * - Read VENDOR_TEST, CREATOR_SW_CFG, and OWNER_SW_CFG partition from OTP
+ * - Compare against reference values
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_otp_data_read(ujson_t *uj);
+
+/**
  * ibex.fi.address_translation command handler.
  *
  * This FI penetration tests executes the following instructions:
@@ -55,12 +113,14 @@ status_t handle_ibex_fi_address_translation_config(ujson_t *uj);
  * ibex.fi.char.csr_write command handler.
  *
  * This FI penetration tests executes the following instructions:
+ * - Init x5 with reference value.
  * - Set the trigger.
  * - Add 10 NOPs to delay the trigger
- * - Write reference values into CSR.
+ * - Repeat:
+ *  - Write x5 into CSR.
+ *  - Read CSR into x5
  * - Unset the trigger.
- * - Read value from CSR.
- * - Compare the values.
+ * - Compare x5 with reference value.
  * - Return the values over UART.
  *
  * Faults are injected during the trigger_high & trigger_low.
@@ -175,7 +235,7 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj);
  * This FI penetration tests executes the following instructions:
  * - Set the trigger.
  * - Add 10 NOPs to delay the trigger
- * - Write 64 static values into SRAM using an unrolled instruction sequence.
+ * - Write 32 static values into SRAM.
  * - Unset the trigger.
  * - Read back values and compare.
  * - Return the values over UART.
@@ -248,6 +308,24 @@ status_t handle_ibex_fi_char_sram_write(ujson_t *uj);
  * @return OK or error.
  */
 status_t handle_ibex_fi_char_unconditional_branch(ujson_t *uj);
+
+/**
+ * ibex.fi.char.unconditional_branch_nop command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Add 10 NOPs to delay the trigger
+ * - Execute 30 JAL uncond. branches to the following instruction sequence:
+ *   ret
+ *   10x addi x5, x5, 1
+ *   ret
+ * - Return the increment counter value over UART.
+ * Faults are injected during the trigger_high & trigger_low.
+ * It needs to be ensured that the compiler does not optimize this code.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj);
 
 /**
  * ibex.fi.char.conditional_branch_beq command handler.
@@ -429,6 +507,29 @@ status_t handle_ibex_fi_char_unrolled_mem_op_loop(ujson_t *uj);
  * @return OK or error.
  */
 status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj);
+
+/**
+ * ibex.fi.char.unrolled_reg_op_loop_chain command handler.
+ *
+ * This FI penetration tests executes the following instructions:
+ * - Initialize register x5=0; x6=0; x7=0; x28=0; x29=0; x30=0
+ * - Add 10 NOPs to delay the trigger
+ * - Perform 10 `chained` additions defined as following:
+ *   -  x6 =  x5 + 1
+ *   -  x7 =  x6 + 1
+ *   - x28 =  x7 + 1
+ *   - x29 = x28 + 1
+ *   - x30 = x29 + 1
+ *   -  x5 = x30 + 1
+ * - Return the 6 register values over UART.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ * It needs to be ensured that the compiler does not optimize this code.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj);
 
 /**
  * Initializes the trigger and configures the device for the Ibex FI test.

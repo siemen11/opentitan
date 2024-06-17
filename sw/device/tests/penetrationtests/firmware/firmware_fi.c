@@ -15,11 +15,13 @@
 #include "sw/device/tests/penetrationtests/json/crypto_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/ibex_fi_commands.h"
 #include "sw/device/tests/penetrationtests/json/otbn_fi_commands.h"
+#include "sw/device/tests/penetrationtests/json/rng_fi_commands.h"
 
 // Include handlers
 #include "fi/crypto_fi.h"
 #include "fi/ibex_fi.h"
 #include "fi/otbn_fi.h"
+#include "fi/rng_fi.h"
 #include "lib/extclk_sca_fi.h"
 
 OTTF_DEFINE_TEST_CONFIG(.enable_uart_flow_control = true);
@@ -40,6 +42,9 @@ status_t process_cmd(ujson_t *uj) {
         break;
       case kPenetrationtestCommandOtbnFi:
         RESP_ERR(uj, handle_otbn_fi(uj));
+        break;
+      case kPenetrationtestCommandRngFi:
+        RESP_ERR(uj, handle_rng_fi(uj));
         break;
       default:
         LOG_ERROR("Unrecognized command: %d", cmd);
