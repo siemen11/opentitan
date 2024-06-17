@@ -184,10 +184,10 @@ status_t handle_rng_fi_edn_resp_ack(ujson_t *uj) {
     for (size_t inner = 0; inner < kEdnBusAckMaxData; inner++) {
       if (outer != inner) {
         if (ibex_rnd_data[outer] == ibex_rnd_data[inner]) {
-          collisions++;
           if (collisions < 16) {
             uj_output.rand[collisions] = ibex_rnd_data[outer];
           }
+          collisions++;
         }
       }
     }
