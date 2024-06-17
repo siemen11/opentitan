@@ -225,7 +225,8 @@ void not_increment_counter(void) __attribute__((optnone)) {
   asm volatile(ADDI10);
 }
 
-status_t handle_ibex_fi_char_hardened_check_eq_unimps(ujson_t *uj) __attribute__((optnone)) {
+status_t handle_ibex_fi_char_hardened_check_eq_unimps(ujson_t *uj)
+    __attribute__((optnone)) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
