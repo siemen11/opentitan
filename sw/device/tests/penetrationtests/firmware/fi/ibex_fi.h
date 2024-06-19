@@ -9,7 +9,7 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
- * ibex.fi.char.hardened_check_eq_unimps command handler.
+ * ibex.fi.char.hardened_check_eq_unimp command handler.
  *
  * Inject faults during a hardened check is executed. As the values to compare
  * are not equal, this test is expected to crash the system.
@@ -19,7 +19,31 @@
  * @param uj An initialized uJSON context.
  * @return OK or error.
  */
-status_t handle_ibex_fi_char_hardened_check_eq_unimps(ujson_t *uj);
+status_t handle_ibex_fi_char_hardened_check_eq_unimp(ujson_t *uj);
+
+/**
+ * ibex.fi.char.hardened_check_eq_2_unimps command handler.
+ *
+ * Same as ibex.fi.char.hardened_check_eq_unimp but with 2 unimp instructions.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_hardened_check_eq_2_unimps(ujson_t *uj);
+
+/**
+ * ibex.fi.char.hardened_check_eq_3_unimps command handler.
+ *
+ * Same as ibex.fi.char.hardened_check_eq_unimp but with 3 unimp instructions.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_hardened_check_eq_3_unimps(ujson_t *uj);
 
 /**
  * otp_ctrl.write_lock command handler.

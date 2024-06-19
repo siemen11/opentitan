@@ -225,7 +225,79 @@ void not_increment_counter(void) __attribute__((optnone)) {
   asm volatile(ADDI10);
 }
 
-status_t handle_ibex_fi_char_hardened_check_eq_unimps(ujson_t *uj)
+status_t handle_ibex_fi_char_hardened_check_eq_unimp(ujson_t *uj)
+    __attribute__((optnone)) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Values are intentially not equal.
+  uint32_t value1 = 0;
+  uint32_t value2 = 1;
+
+  sca_set_trigger_high();
+  asm volatile(NOP10);
+  // The HARDENED_CHECK macro from hardened.h is solved explicitely.
+  // clang-format off
+  asm volatile("beq" " %0, %1, .L_HARDENED_%=;" \
+    "unimp;" \
+    ".L_HARDENED_%=:;"::"r"(value1), "r"(value2) );
+  // clang-format on
+  asm volatile(NOP10);
+  sca_set_trigger_low();
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  ibex_fi_test_result_mult_t uj_output;
+  uj_output.err_status = codes;
+  uj_output.result1 = value1;
+  uj_output.result2 = value2;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_mult_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_char_hardened_check_eq_2_unimps(ujson_t *uj)
+    __attribute__((optnone)) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Values are intentially not equal.
+  uint32_t value1 = 0;
+  uint32_t value2 = 1;
+
+  sca_set_trigger_high();
+  asm volatile(NOP10);
+  // The HARDENED_CHECK macro from hardened.h is solved explicitely.
+  // clang-format off
+  asm volatile("beq" " %0, %1, .L_HARDENED_%=;" \
+    "unimp; unimp;" \
+    ".L_HARDENED_%=:;"::"r"(value1), "r"(value2) );
+  // clang-format on
+  asm volatile(NOP10);
+  sca_set_trigger_low();
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  ibex_fi_test_result_mult_t uj_output;
+  uj_output.err_status = codes;
+  uj_output.result1 = value1;
+  uj_output.result2 = value2;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_mult_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_char_hardened_check_eq_3_unimps(ujson_t *uj)
     __attribute__((optnone)) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
@@ -2330,8 +2402,12 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_otp_read_lock(uj);
     case kIbexFiSubcommandOtpWriteLock:
       return handle_ibex_fi_otp_write_lock(uj);
-    case kIbexFiSubcommandCharHardenedCheck:
-      return handle_ibex_fi_char_hardened_check_eq_unimps(uj);
+    case kIbexFiSubcommandCharHardenedCheckUnimp:
+      return handle_ibex_fi_char_hardened_check_eq_unimp(uj);
+    case kIbexFiSubcommandCharHardenedCheck2Unimps:
+      return handle_ibex_fi_char_hardened_check_eq_2_unimps(uj);
+    case kIbexFiSubcommandCharHardenedCheck3Unimps:
+      return handle_ibex_fi_char_hardened_check_eq_3_unimps(uj);
     default:
       LOG_ERROR("Unrecognized IBEX FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
