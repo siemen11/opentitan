@@ -36,6 +36,7 @@ enum {
   kEdnKatMaxClen = 12,
   kEdnKatOutputLen = 16,
   kEdnKatWordsPerBlock = 4,
+  kEntropyFifoBufferSize = 32,
 };
 
 static dif_rv_core_ibex_t rv_core_ibex;
@@ -43,6 +44,8 @@ static dif_entropy_src_t entropy_src;
 static dif_csrng_t csrng;
 static dif_edn_t edn0;
 static dif_edn_t edn1;
+
+static bool firmware_override_init;
 
 // Seed material for the EDN KAT instantiate command.
 const dif_edn_seed_material_t kEdnKatSeedMaterialInstantiate = {
@@ -99,6 +102,84 @@ const uint32_t kExpectedOutput[kEdnKatOutputLen] = {
     0xd40fccb1, 0x87189e99, 0x510494b3, 0x64f7ac0c, 0x2581f391, 0x80b1dc2f,
     0x793e01c5, 0x87b107ae, 0xdb17514c, 0xa43c41b7,
 };
+
+/**
+ * Flushes the data entropy buffer until there is no data available to read.
+ *
+ * Asserts test error if any of the returned words is equal to zero. Logs the
+ * number of entropy words flushed in a single call.
+ *
+ * @param entropy An entropy source instance.
+ */
+static void entropy_data_flush(dif_entropy_src_t *entropy_src) {
+  uint32_t entropy_bits;
+  uint32_t read_count = 0;
+
+  // TODO: Remove this limit. Entropy source should block if there is no entropy
+  // available in FW override mode.
+  const uint32_t kMaxReadCount = 12;
+
+  while (dif_entropy_src_is_entropy_available(entropy_src) == kDifOk) {
+    CHECK_DIF_OK(dif_entropy_src_non_blocking_read(entropy_src, &entropy_bits));
+    CHECK(entropy_bits != 0);
+    read_count++;
+    if (read_count >= kMaxReadCount) {
+      break;
+    }
+  }
+}
+
+status_t handle_rng_fi_firmware_override(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  if (!firmware_override_init) {
+    // Check if we keep heal tests enabled.
+    rng_fi_fw_overwrite_health_t uj_data;
+    TRY(ujson_deserialize_rng_fi_fw_overwrite_health_t(uj, &uj_data));
+
+    TRY(entropy_testutils_stop_all());
+
+    if (uj_data.disable_health_check) {
+      // Disable all health tests.
+      TRY(entropy_testutils_disable_health_tests(&entropy_src));
+    }
+
+    TRY(entropy_testutils_fw_override_enable(&entropy_src,
+                                             kEntropyFifoBufferSize,
+                                             /*route_to_firmware=*/true,
+                                             /*bypass_conditioner=*/false));
+    firmware_override_init = true;
+  }
+
+  entropy_data_flush(&entropy_src);
+
+  uint32_t buf[kEntropyFifoBufferSize] = {0};
+
+  sca_set_trigger_high();
+  asm volatile(NOP30);
+  TRY(dif_entropy_src_observe_fifo_blocking_read(&entropy_src, buf,
+                                                 kEntropyFifoBufferSize));
+  asm volatile(NOP30);
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Send result & ERR_STATUS to host.
+  rng_fi_fw_overwrite_t uj_output;
+  // Send result & ERR_STATUS to host.
+  memcpy(uj_output.rand, buf, sizeof(buf));
+  uj_output.err_status = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_rng_fi_fw_overwrite_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
 
 status_t handle_rng_fi_edn_bias(ujson_t *uj) {
   // Clear registered alerts in alert handler.
@@ -251,6 +332,8 @@ status_t handle_rng_fi_edn_init(ujson_t *uj) {
   TRY(sca_read_device_id(uj_output.device_id));
   RESP_OK(ujson_serialize_penetrationtest_device_id_t, uj, &uj_output);
 
+  firmware_override_init = false;
+
   return OK_STATUS();
 }
 
@@ -380,6 +463,8 @@ status_t handle_rng_fi(ujson_t *uj) {
       return handle_rng_fi_edn_resp_ack(uj);
     case kRngFiSubcommandEdnBias:
       return handle_rng_fi_edn_bias(uj);
+    case kRngFiSubcommandFWOverride:
+      return handle_rng_fi_firmware_override(uj);
     default:
       LOG_ERROR("Unrecognized RNG FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();

@@ -16,7 +16,8 @@ extern "C" {
     value(_, CsrngBias) \
     value(_, EdnInit) \
     value(_, EdnRespAck) \
-    value(_, EdnBias)
+    value(_, EdnBias) \
+    value(_, FWOverride)
 UJSON_SERDE_ENUM(RngFiSubcommand, rng_fi_subcommand_t, RNGFI_SUBCOMMAND);
 
 #define CRYPTOFI_CSRNG_MODE(field, string) \
@@ -33,12 +34,22 @@ UJSON_SERDE_STRUCT(CryptoFiCsrngMode, crypto_fi_csrng_mode_t, CRYPTOFI_CSRNG_MOD
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(RngFiCsrngOutput, rng_fi_csrng_output_t, RNGFI_CSRNG_OUTPUT);
 
+#define RNGFI_FWOVERWRITE_OUTPUT(field, string) \
+    field(rand, uint32_t, 32) \
+    field(alerts, uint32_t, 3) \
+    field(err_status, uint32_t)
+UJSON_SERDE_STRUCT(RngFiFwOverwriteOutput, rng_fi_fw_overwrite_t, RNGFI_FWOVERWRITE_OUTPUT);
+
 #define RNGFI_EDN(field, string) \
     field(collisions, uint32_t) \
     field(rand, uint32_t, 16) \
     field(alerts, uint32_t, 3) \
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(RngFiEdn, rng_fi_edn_t, RNGFI_EDN);
+
+#define RNGFI_FWOVERWRITE_HEALTH(field, string) \
+    field(disable_health_check, bool)
+UJSON_SERDE_STRUCT(RngFiFwOverwriteHealt, rng_fi_fw_overwrite_health_t, RNGFI_FWOVERWRITE_HEALTH);
 
 // clang-format on
 
