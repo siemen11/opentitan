@@ -231,8 +231,11 @@ status_t handle_ibex_fi_char_hardened_check_eq_unimp(ujson_t *uj)
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Values are intentially not equal.
-  uint32_t value1 = 0;
-  uint32_t value2 = 1;
+  //uint32_t value1 = 0;
+  //uint32_t value2 = 1;
+  // JH: Changed 28th June. Tests before used unharded values
+  hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  hardened_bool_t value2 = HARDENED_BOOL_FALSE;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
@@ -267,8 +270,11 @@ status_t handle_ibex_fi_char_hardened_check_eq_2_unimps(ujson_t *uj)
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Values are intentially not equal.
-  uint32_t value1 = 0;
-  uint32_t value2 = 1;
+  //uint32_t value1 = 0;
+  //uint32_t value2 = 1;
+  // JH: Changed 28th June. Tests before used unharded values
+  hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  hardened_bool_t value2 = HARDENED_BOOL_FALSE;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
@@ -303,8 +309,11 @@ status_t handle_ibex_fi_char_hardened_check_eq_3_unimps(ujson_t *uj)
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Values are intentially not equal.
-  uint32_t value1 = 0;
-  uint32_t value2 = 1;
+  //uint32_t value1 = 0;
+  //uint32_t value2 = 1;
+  // JH: Changed 28th June. Tests before used unharded values
+  hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  hardened_bool_t value2 = HARDENED_BOOL_FALSE;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
@@ -339,8 +348,11 @@ status_t handle_ibex_fi_char_hardened_check_eq_4_unimps(ujson_t *uj)
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Values are intentially not equal.
-  uint32_t value1 = 0;
-  uint32_t value2 = 1;
+  //uint32_t value1 = 0;
+  //uint32_t value2 = 1;
+  // JH: Changed 28th June. Tests before used unharded values
+  hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  hardened_bool_t value2 = HARDENED_BOOL_FALSE;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
@@ -375,8 +387,11 @@ status_t handle_ibex_fi_char_hardened_check_eq_5_unimps(ujson_t *uj)
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Values are intentially not equal.
-  uint32_t value1 = 0;
-  uint32_t value2 = 1;
+  //uint32_t value1 = 0;
+  //uint32_t value2 = 1;
+  // JH: Changed 28th June. Tests before used unharded values
+  hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  hardened_bool_t value2 = HARDENED_BOOL_FALSE;;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
@@ -411,8 +426,11 @@ status_t handle_ibex_fi_char_hardened_check_eq_complement_branch(ujson_t *uj)
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   // Values are intentially not equal.
-  uint32_t value1 = 0;
-  uint32_t value2 = 1;
+  //uint32_t value1 = 0;
+  //uint32_t value2 = 1;
+  // JH: Changed 28th June. Tests before used unharded values
+  hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  hardened_bool_t value2 = HARDENED_BOOL_FALSE;
 
   sca_set_trigger_high();
   asm volatile(NOP10);
