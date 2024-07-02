@@ -9,6 +9,19 @@
 #include "sw/device/lib/ujson/ujson.h"
 
 /**
+ * rng_fi_entropy_src_bias command handler.
+ *
+ * Configures the entropy source module to return data on the ENTROPY_DATA
+ * register. The goal is to inject a fault such that a BIAS is visible.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_rng_fi_entropy_src_bias(ujson_t *uj);
+
+/**
  * rng_fi_firmware_override command handler.
  *
  * Configures the entropy source module with the firmware override mode allowing

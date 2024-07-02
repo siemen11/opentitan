@@ -46,6 +46,7 @@ static dif_edn_t edn0;
 static dif_edn_t edn1;
 
 static bool firmware_override_init;
+static bool entropy_src_bias_init;
 
 // Seed material for the EDN KAT instantiate command.
 const dif_edn_seed_material_t kEdnKatSeedMaterialInstantiate = {
@@ -127,6 +128,64 @@ static void entropy_data_flush(dif_entropy_src_t *entropy_src) {
       break;
     }
   }
+}
+
+status_t handle_rng_fi_entropy_src_bias(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  if (!entropy_src_bias_init) {
+    TRY(dif_entropy_src_set_enabled(&entropy_src, kDifToggleDisabled));
+
+    // Setup fips grade entropy that can be read by firmware.
+    const dif_entropy_src_config_t config = {
+        .fips_enable = true,
+        .route_to_firmware = true,
+        .single_bit_mode = kDifEntropySrcSingleBitModeDisabled,
+        .health_test_threshold_scope = false, /*default*/
+        .health_test_window_size = 0x0200,    /*default*/
+        .alert_threshold = 2,                 /*default*/
+    };
+
+    // Re-enable entropy src.
+    CHECK_DIF_OK(
+        dif_entropy_src_configure(&entropy_src, config, kDifToggleEnabled));
+    // ensure health tests are actually running
+    TRY(entropy_testutils_wait_for_state(
+        &entropy_src, kDifEntropySrcMainFsmStateContHTRunning));
+
+    entropy_src_bias_init = true;
+  }
+
+  entropy_data_flush(&entropy_src);
+
+  uint32_t entropy_bits;
+
+  sca_set_trigger_high();
+  asm volatile(NOP30);
+  // wait for entropy to become available and read
+  while (dif_entropy_src_non_blocking_read(&entropy_src, &entropy_bits) !=
+         kDifOk)
+    ;
+  asm volatile(NOP30);
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Send result & ERR_STATUS to host.
+  rng_fi_entropy_src_bias_t uj_output;
+  // Send result & ERR_STATUS to host.
+  uj_output.rand = entropy_bits;
+  uj_output.err_status = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_rng_fi_entropy_src_bias_t, uj, &uj_output);
+
+  return OK_STATUS();
 }
 
 status_t handle_rng_fi_firmware_override(ujson_t *uj) {
@@ -334,6 +393,8 @@ status_t handle_rng_fi_edn_init(ujson_t *uj) {
 
   firmware_override_init = false;
 
+  entropy_src_bias_init = false;
+
   return OK_STATUS();
 }
 
@@ -465,6 +526,8 @@ status_t handle_rng_fi(ujson_t *uj) {
       return handle_rng_fi_edn_bias(uj);
     case kRngFiSubcommandFWOverride:
       return handle_rng_fi_firmware_override(uj);
+    case kRngFiSubcommandEntropySrcBias:
+      return handle_rng_fi_entropy_src_bias(uj);
     default:
       LOG_ERROR("Unrecognized RNG FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
