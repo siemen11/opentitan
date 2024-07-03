@@ -118,7 +118,7 @@ static void entropy_data_flush(dif_entropy_src_t *entropy_src) {
 
   // TODO: Remove this limit. Entropy source should block if there is no entropy
   // available in FW override mode.
-  const uint32_t kMaxReadCount = 12;
+  const uint32_t kMaxReadCount = 32;
 
   while (dif_entropy_src_is_entropy_available(entropy_src) == kDifOk) {
     CHECK_DIF_OK(dif_entropy_src_non_blocking_read(entropy_src, &entropy_bits));
