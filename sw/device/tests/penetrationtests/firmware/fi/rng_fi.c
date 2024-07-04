@@ -47,7 +47,6 @@ static dif_edn_t edn0;
 static dif_edn_t edn1;
 
 static bool firmware_override_init;
-static bool entropy_src_bias_init;
 
 // Seed material for the EDN KAT instantiate command.
 const dif_edn_seed_material_t kEdnKatSeedMaterialInstantiate = {
@@ -135,28 +134,24 @@ status_t handle_rng_fi_entropy_src_bias(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
-  if (!entropy_src_bias_init) {
-    TRY(dif_entropy_src_set_enabled(&entropy_src, kDifToggleDisabled));
+  TRY(dif_entropy_src_set_enabled(&entropy_src, kDifToggleDisabled));
 
-    // Setup fips grade entropy that can be read by firmware.
-    const dif_entropy_src_config_t config = {
-        .fips_enable = true,
-        .route_to_firmware = true,
-        .single_bit_mode = kDifEntropySrcSingleBitModeDisabled,
-        .health_test_threshold_scope = false, /*default*/
-        .health_test_window_size = 0x0200,    /*default*/
-        .alert_threshold = 2,                 /*default*/
-    };
+  // Setup fips grade entropy that can be read by firmware.
+  const dif_entropy_src_config_t config = {
+      .fips_enable = true,
+      .route_to_firmware = true,
+      .single_bit_mode = kDifEntropySrcSingleBitModeDisabled,
+      .health_test_threshold_scope = false, /*default*/
+      .health_test_window_size = 0x0200,    /*default*/
+      .alert_threshold = 2,                 /*default*/
+  };
 
-    // Re-enable entropy src.
-    CHECK_DIF_OK(
-        dif_entropy_src_configure(&entropy_src, config, kDifToggleEnabled));
-    // ensure health tests are actually running
-    TRY(entropy_testutils_wait_for_state(
-        &entropy_src, kDifEntropySrcMainFsmStateContHTRunning));
-
-    entropy_src_bias_init = true;
-  }
+  // Re-enable entropy src.
+  CHECK_DIF_OK(
+      dif_entropy_src_configure(&entropy_src, config, kDifToggleEnabled));
+  // ensure health tests are actually running
+  TRY(entropy_testutils_wait_for_state(
+      &entropy_src, kDifEntropySrcMainFsmStateContHTRunning));
 
   entropy_data_flush(&entropy_src);
 
@@ -394,8 +389,6 @@ status_t handle_rng_fi_edn_init(ujson_t *uj) {
   RESP_OK(ujson_serialize_penetrationtest_device_id_t, uj, &uj_output);
 
   firmware_override_init = false;
-
-  entropy_src_bias_init = false;
 
   return OK_STATUS();
 }
