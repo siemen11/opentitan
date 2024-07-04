@@ -36,7 +36,7 @@ UJSON_SERDE_STRUCT(CryptoFiCsrngMode, crypto_fi_csrng_mode_t, CRYPTOFI_CSRNG_MOD
 UJSON_SERDE_STRUCT(RngFiCsrngOutput, rng_fi_csrng_output_t, RNGFI_CSRNG_OUTPUT);
 
 #define RNGFI_ENTRBIAS_OUTPUT(field, string) \
-    field(rand, uint32_t) \
+    field(rand, uint32_t, 32) \
     field(alerts, uint32_t, 3) \
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(RngFiEntrBiasOutput, rng_fi_entropy_src_bias_t, RNGFI_ENTRBIAS_OUTPUT);

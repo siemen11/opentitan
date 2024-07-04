@@ -37,6 +37,7 @@ enum {
   kEdnKatOutputLen = 16,
   kEdnKatWordsPerBlock = 4,
   kEntropyFifoBufferSize = 32,
+  kMaxReadCountNotBlocking = 32,
 };
 
 static dif_rv_core_ibex_t rv_core_ibex;
@@ -159,14 +160,15 @@ status_t handle_rng_fi_entropy_src_bias(ujson_t *uj) {
 
   entropy_data_flush(&entropy_src);
 
-  uint32_t entropy_bits;
+  uint32_t entropy_bits[kMaxReadCountNotBlocking] = {0};
 
   sca_set_trigger_high();
   asm volatile(NOP30);
-  // wait for entropy to become available and read
-  while (dif_entropy_src_non_blocking_read(&entropy_src, &entropy_bits) !=
-         kDifOk)
-    ;
+  for (size_t it = 0; it < kMaxReadCountNotBlocking; it++) {
+    while (dif_entropy_src_non_blocking_read(&entropy_src, &entropy_bits[it]) !=
+           kDifOk)
+      ;
+  }
   asm volatile(NOP30);
   sca_set_trigger_low();
 
@@ -180,7 +182,7 @@ status_t handle_rng_fi_entropy_src_bias(ujson_t *uj) {
   // Send result & ERR_STATUS to host.
   rng_fi_entropy_src_bias_t uj_output;
   // Send result & ERR_STATUS to host.
-  uj_output.rand = entropy_bits;
+  memcpy(uj_output.rand, entropy_bits, sizeof(entropy_bits));
   uj_output.err_status = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_rng_fi_entropy_src_bias_t, uj, &uj_output);
