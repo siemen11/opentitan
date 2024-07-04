@@ -45,6 +45,7 @@ static dif_entropy_src_t entropy_src;
 static dif_csrng_t csrng;
 static dif_edn_t edn0;
 static dif_edn_t edn1;
+static bool disable_health_check;
 
 static bool firmware_override_init;
 
@@ -193,20 +194,21 @@ status_t handle_rng_fi_firmware_override(ujson_t *uj) {
     // Check if we keep heal tests enabled.
     rng_fi_fw_overwrite_health_t uj_data;
     TRY(ujson_deserialize_rng_fi_fw_overwrite_health_t(uj, &uj_data));
+    disable_health_check = uj_data.disable_health_check;
 
-    TRY(entropy_testutils_stop_all());
-
-    if (uj_data.disable_health_check) {
-      // Disable all health tests.
-      TRY(entropy_testutils_disable_health_tests(&entropy_src));
-    }
-
-    TRY(entropy_testutils_fw_override_enable(&entropy_src,
-                                             kEntropyFifoBufferSize,
-                                             /*route_to_firmware=*/true,
-                                             /*bypass_conditioner=*/false));
     firmware_override_init = true;
   }
+
+  TRY(entropy_testutils_stop_all());
+
+  if (disable_health_check) {
+    // Disable all health tests.
+    TRY(entropy_testutils_disable_health_tests(&entropy_src));
+  }
+
+  TRY(entropy_testutils_fw_override_enable(&entropy_src, kEntropyFifoBufferSize,
+                                           /*route_to_firmware=*/true,
+                                           /*bypass_conditioner=*/true));
 
   entropy_data_flush(&entropy_src);
 
@@ -214,8 +216,13 @@ status_t handle_rng_fi_firmware_override(ujson_t *uj) {
 
   sca_set_trigger_high();
   asm volatile(NOP30);
-  TRY(dif_entropy_src_observe_fifo_blocking_read(&entropy_src, buf,
-                                                 kEntropyFifoBufferSize));
+  for (size_t it = 0; it < kEntropyFifoBufferSize; it++) {
+    while (buf[it] == 0) {
+      TRY(dif_entropy_src_observe_fifo_blocking_read(&entropy_src, &buf[it],
+                                                     kEntropyFifoBufferSize));
+    }
+  }
+
   asm volatile(NOP30);
   sca_set_trigger_low();
 
