@@ -19,8 +19,6 @@
 OTTF_DEFINE_TEST_CONFIG(.enable_concurrency = false,
                         .console.test_may_clobber = true, );
 
-//static dif_rv_core_ibex_t rv_core_ibex;
-
 #define MLEN 59
 
 /*************************************************
@@ -44,8 +42,8 @@ int crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
   polyveck s2, t1, t0;
 
   /* Get randomness for rho, rhoprime and key */
-  for(int i = 0; i < SEEDBYTES; i++) {
-    seedbuf[i] = 0;
+  for(int r = 0; r < SEEDBYTES; r++) {
+    seedbuf[r] = (uint8_t)r;
   }
   shake256(seedbuf, 2*SEEDBYTES + CRHBYTES, seedbuf, SEEDBYTES);
   rho = seedbuf;
@@ -359,7 +357,7 @@ bool test_main(void) {
   uint8_t sk[CRYPTO_SECRETKEYBYTES];
 
   for(int r = 0; r < MLEN; r++) {
-    m[r] = 0;
+    m[r] = (uint8_t)r;
   }
 
   crypto_sign_keypair(pk, sk);
