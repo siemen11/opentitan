@@ -13,11 +13,11 @@
 * Returns r.
 **************************************************/
 int32_t montgomery_reduce(int64_t a) {
-  int64_t t;
+  int32_t t;
 
-  t = (int64_t)(int32_t)a*QINV;
-  t = (a - (int64_t)t*Q) >> 32;
-  return (int32_t)t;
+  t = (int32_t)a*QINV;
+  t = (int32_t)((a - (int64_t)t*Q) >> 32);
+  return t;
 }
 
 /*************************************************
