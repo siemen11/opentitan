@@ -406,9 +406,9 @@ static unsigned int rej_eta(int32_t *a,
     }
 #elif ETA == 4
     if(t0 < 9)
-      a[ctr++] = 4 - t0;
+      a[ctr++] = (int32_t)(4 - t0);
     if(t1 < 9 && ctr < len)
-      a[ctr++] = 4 - t1;
+      a[ctr++] = (int32_t)(4 - t1);
 #endif
   }
 
@@ -551,9 +551,9 @@ void polyeta_pack(uint8_t *r, const poly *a) {
   }
 #elif ETA == 4
   for(i = 0; i < N/2; ++i) {
-    t[0] = ETA - a->coeffs[2*i+0];
-    t[1] = ETA - a->coeffs[2*i+1];
-    r[i] = t[0] | (t[1] << 4);
+    t[0] = (uint8_t)(ETA - a->coeffs[2*i+0]);
+    t[1] = (uint8_t)(ETA - a->coeffs[2*i+1]);
+    r[i] = (uint8_t)(t[0] | (t[1] << 4));
   }
 #endif
 
@@ -800,15 +800,15 @@ void polyz_pack(uint8_t *r, const poly *a) {
   }
 #elif GAMMA1 == (1 << 19)
   for(i = 0; i < N/2; ++i) {
-    t[0] = GAMMA1 - a->coeffs[2*i+0];
-    t[1] = GAMMA1 - a->coeffs[2*i+1];
+    t[0] = (uint32_t)(GAMMA1 - a->coeffs[2*i+0]);
+    t[1] = (uint32_t)(GAMMA1 - a->coeffs[2*i+1]);
 
-    r[5*i+0]  = t[0];
-    r[5*i+1]  = t[0] >> 8;
-    r[5*i+2]  = t[0] >> 16;
-    r[5*i+2] |= t[1] << 4;
-    r[5*i+3]  = t[1] >> 4;
-    r[5*i+4]  = t[1] >> 12;
+    r[5*i+0]  = (uint8_t)(t[0]);
+    r[5*i+1]  = (uint8_t)(t[0] >> 8);
+    r[5*i+2]  = (uint8_t)(t[0] >> 16);
+    r[5*i+2] |= (uint8_t)(t[1] << 4);
+    r[5*i+3]  = (uint8_t)(t[1] >> 4);
+    r[5*i+4]  = (uint8_t)(t[1] >> 12);
   }
 #endif
 
@@ -900,7 +900,7 @@ void polyw1_pack(uint8_t *r, const poly *a) {
   }
 #elif GAMMA2 == (Q-1)/32
   for(i = 0; i < N/2; ++i)
-    r[i] = a->coeffs[2*i+0] | (a->coeffs[2*i+1] << 4);
+    r[i] = (uint8_t)(a->coeffs[2*i+0] | (a->coeffs[2*i+1] << 4));
 #endif
 
   DBENCH_STOP(*tpack);
