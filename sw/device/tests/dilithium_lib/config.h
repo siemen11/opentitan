@@ -8,7 +8,7 @@
 //#define DBENCH
 
 #ifndef DILITHIUM_MODE
-#define DILITHIUM_MODE 2
+#define DILITHIUM_MODE 3
 #endif
 
 #ifdef DILITHIUM_USE_AES
