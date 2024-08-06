@@ -20,6 +20,7 @@ OTTF_DEFINE_TEST_CONFIG(.enable_concurrency = false,
                         .console.test_may_clobber = true, );
 
 #define MLEN 59
+#define NTESTS 1
 
 /*************************************************
 * Name:        crypto_sign_keypair
@@ -42,39 +43,61 @@ int crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
   polyveck s2, t1, t0;
 
   /* Get randomness for rho, rhoprime and key */
+  memset(seedbuf, 0x0, 2*SEEDBYTES + CRHBYTES);
   for(int r = 0; r < SEEDBYTES; r++) {
     seedbuf[r] = (uint8_t)r;
   }
+
+  uint64_t start = ibex_mcycle_read();
   shake256(seedbuf, 2*SEEDBYTES + CRHBYTES, seedbuf, SEEDBYTES);
   rho = seedbuf;
   rhoprime = rho + SEEDBYTES;
   key = rhoprime + CRHBYTES;
+  uint64_t end = ibex_mcycle_read();
+  LOG_INFO("Expand seed = %u cycles", (uint32_t)(end - start));
 
   /* Expand matrix */
+  start = ibex_mcycle_read();
   polyvec_matrix_expand(mat, rho);
+  end = ibex_mcycle_read();
 
   /* Sample short vectors s1 and s2 */
+  start = ibex_mcycle_read();
   polyvecl_uniform_eta(&s1, rhoprime, 0);
   polyveck_uniform_eta(&s2, rhoprime, L);
+  end = ibex_mcycle_read();
+  LOG_INFO("sample short vectors s1 and s2 = %u cycles", (uint32_t)(end - start));
 
   /* Matrix-vector multiplication */
+  start = ibex_mcycle_read();
   s1hat = s1;
   polyvecl_ntt(&s1hat);
   polyvec_matrix_pointwise_montgomery(&t1, mat, &s1hat);
   polyveck_reduce(&t1);
   polyveck_invntt_tomont(&t1);
+  end = ibex_mcycle_read();
+  LOG_INFO("Matrix vector mult = %u cycles", (uint32_t)(end - start));
 
   /* Add error vector s2 */
+  start = ibex_mcycle_read();
   polyveck_add(&t1, &t1, &s2);
+  end = ibex_mcycle_read();
+  LOG_INFO("Add error vector = %u cycles", (uint32_t)(end - start));
 
   /* Extract t1 and write public key */
+  start = ibex_mcycle_read();
   polyveck_caddq(&t1);
   polyveck_power2round(&t1, &t0, &t1);
   pack_pk(pk, rho, &t1);
+  end = ibex_mcycle_read();
+  LOG_INFO("Extract t1 = %u cycles", (uint32_t)(end - start));
 
   /* Compute H(rho, t1) and write secret key */
+  start = ibex_mcycle_read();
   shake256(tr, SEEDBYTES, pk, CRYPTO_PUBLICKEYBYTES);
   pack_sk(sk, rho, tr, key, &t0, &s1, &s2);
+  end = ibex_mcycle_read();
+  LOG_INFO("Compute H = %u cycles", (uint32_t)(end - start));
 
   return 0;
 }
@@ -115,36 +138,52 @@ int crypto_sign_signature(uint8_t *sig,
   unpack_sk(rho, tr, key, &t0, &s1, &s2, sk);
 
   /* Compute CRH(tr, msg) */
+  uint64_t start = ibex_mcycle_read();
   shake256_init(&state);
   shake256_absorb(&state, tr, SEEDBYTES);
   shake256_absorb(&state, m, mlen);
   shake256_finalize(&state);
   shake256_squeeze(mu, CRHBYTES, &state);
+  uint64_t end = ibex_mcycle_read();
+  LOG_INFO("Compute CRH(tr, msg) = %u cycles", (uint32_t)(end - start));
 
+  start = ibex_mcycle_read();
   shake256(rhoprime, CRHBYTES, key, SEEDBYTES + CRHBYTES);
+  end = ibex_mcycle_read();
+  LOG_INFO("Compute private random seed = %u cycles", (uint32_t)(end - start));
 
   /* Expand matrix and transform vectors */
+  start = ibex_mcycle_read();
   polyvec_matrix_expand(mat, rho);
   polyvecl_ntt(&s1);
   polyveck_ntt(&s2);
   polyveck_ntt(&t0);
+  end = ibex_mcycle_read();
+  LOG_INFO("Expand matrix and transform vectors = %u cycles", (uint32_t)(end - start));
 
 rej:
   /* Sample intermediate vector y */
   polyvecl_uniform_gamma1(&y, rhoprime, nonce++);
 
   /* Matrix-vector multiplication */
+  start = ibex_mcycle_read();
   z = y;
   polyvecl_ntt(&z);
   polyvec_matrix_pointwise_montgomery(&w1, mat, &z);
   polyveck_reduce(&w1);
   polyveck_invntt_tomont(&w1);
+  end = ibex_mcycle_read();
+  LOG_INFO("Matrix-vector multiplication = %u cycles", (uint32_t)(end - start));
 
   /* Decompose w and call the random oracle */
+  start = ibex_mcycle_read();
   polyveck_caddq(&w1);
   polyveck_decompose(&w1, &w0, &w1);
   polyveck_pack_w1(sig, &w1);
+  end = ibex_mcycle_read();
+  LOG_INFO("Decompose w and call the random oracle = %u cycles", (uint32_t)(end - start));
 
+  start = ibex_mcycle_read();
   shake256_init(&state);
   shake256_absorb(&state, mu, CRHBYTES);
   shake256_absorb(&state, sig, K*POLYW1_PACKEDBYTES);
@@ -152,25 +191,34 @@ rej:
   shake256_squeeze(sig, SEEDBYTES, &state);
   poly_challenge(&cp, sig);
   poly_ntt(&cp);
+  end = ibex_mcycle_read();
+  LOG_INFO("Compute commitment hash = %u cycles", (uint32_t)(end - start));
 
   /* Compute z, reject if it reveals secret */
+  start = ibex_mcycle_read();
   polyvecl_pointwise_poly_montgomery(&z, &cp, &s1);
   polyvecl_invntt_tomont(&z);
   polyvecl_add(&z, &z, &y);
   polyvecl_reduce(&z);
   if(polyvecl_chknorm(&z, GAMMA1 - BETA))
     goto rej;
+  end = ibex_mcycle_read();
+  LOG_INFO("Compute z, reject if it reveals secret = %u cycles", (uint32_t)(end - start));
 
   /* Check that subtracting cs2 does not change high bits of w and low bits
    * do not reveal secret information */
+  start = ibex_mcycle_read();
   polyveck_pointwise_poly_montgomery(&h, &cp, &s2);
   polyveck_invntt_tomont(&h);
   polyveck_sub(&w0, &w0, &h);
   polyveck_reduce(&w0);
   if(polyveck_chknorm(&w0, GAMMA2 - BETA))
     goto rej;
+  end = ibex_mcycle_read();
+  LOG_INFO("Checks cs2 = %u cycles", (uint32_t)(end - start));
 
   /* Compute hints for w1 */
+  start = ibex_mcycle_read();
   polyveck_pointwise_poly_montgomery(&h, &cp, &t0);
   polyveck_invntt_tomont(&h);
   polyveck_reduce(&h);
@@ -182,9 +230,15 @@ rej:
   if(n > OMEGA)
     goto rej;
 
+  end = ibex_mcycle_read();
+  LOG_INFO("Compute hints for w1 = %u cycles", (uint32_t)(end - start));
+
   /* Write signature */
+  start = ibex_mcycle_read();
   pack_sig(sig, sig, &z, &h);
   *siglen = CRYPTO_BYTES;
+  end = ibex_mcycle_read();
+  LOG_INFO("Write signature = %u cycles", (uint32_t)(end - start));
   return 0;
 }
 
@@ -249,24 +303,34 @@ int crypto_sign_verify(const uint8_t *sig,
   polyveck t1, w1, h;
   keccak_state state;
 
-  if(siglen != CRYPTO_BYTES)
+  if(siglen != CRYPTO_BYTES) {
+    LOG_INFO("siglen -1");
     return -1;
+  }
 
   unpack_pk(rho, &t1, pk);
-  if(unpack_sig(c, &z, &h, sig))
+  if(unpack_sig(c, &z, &h, sig)) {
+    LOG_INFO("unpack_sig -1");
     return -1;
-  if(polyvecl_chknorm(&z, GAMMA1 - BETA))
+  }
+  if(polyvecl_chknorm(&z, GAMMA1 - BETA)) {
+    LOG_INFO("polyvecl_chknorm -1");
     return -1;
+  }
 
   /* Compute CRH(H(rho, t1), msg) */
+  uint64_t start = ibex_mcycle_read();
   shake256(mu, SEEDBYTES, pk, CRYPTO_PUBLICKEYBYTES);
   shake256_init(&state);
   shake256_absorb(&state, mu, SEEDBYTES);
   shake256_absorb(&state, m, mlen);
   shake256_finalize(&state);
   shake256_squeeze(mu, CRHBYTES, &state);
+  uint64_t end = ibex_mcycle_read();
+  LOG_INFO("Compute Compute CRH(H(rho, t1), msg) = %u cycles", (uint32_t)(end - start));
 
   /* Matrix-vector multiplication; compute Az - c2^dt1 */
+  start = ibex_mcycle_read();
   poly_challenge(&cp, c);
   polyvec_matrix_expand(mat, rho);
 
@@ -281,21 +345,32 @@ int crypto_sign_verify(const uint8_t *sig,
   polyveck_sub(&w1, &w1, &t1);
   polyveck_reduce(&w1);
   polyveck_invntt_tomont(&w1);
+  end = ibex_mcycle_read();
+  LOG_INFO("Matrix-vector multiplication; compute Az - c2^dt1 = %u cycles", (uint32_t)(end - start));
 
   /* Reconstruct w1 */
+  start = ibex_mcycle_read();
   polyveck_caddq(&w1);
   polyveck_use_hint(&w1, &w1, &h);
   polyveck_pack_w1(buf, &w1);
+  end = ibex_mcycle_read();
+  LOG_INFO("Reconstruct w1 = %u cycles", (uint32_t)(end - start));
 
   /* Call random oracle and verify challenge */
+  start = ibex_mcycle_read();
   shake256_init(&state);
   shake256_absorb(&state, mu, CRHBYTES);
   shake256_absorb(&state, buf, K*POLYW1_PACKEDBYTES);
   shake256_finalize(&state);
   shake256_squeeze(c2, SEEDBYTES, &state);
-  for(i = 0; i < SEEDBYTES; ++i)
-    if(c[i] != c2[i])
+  for(i = 0; i < SEEDBYTES; ++i) {
+    if(c[i] != c2[i]) {
       return -1;
+    }
+  }
+  end = ibex_mcycle_read();
+  LOG_INFO("Call random oracle and verify challenge = %u cycles", (uint32_t)(end - start));
+      
 
   return 0;
 }
@@ -340,7 +415,7 @@ badsig:
   *mlen = (size_t)-1;
   for(i = 0; i < smlen; ++i)
     m[i] = 0;
-
+  LOG_INFO("verification failed badsig");
   return -1;
 }
 
@@ -356,16 +431,39 @@ bool test_main(void) {
   uint8_t pk[CRYPTO_PUBLICKEYBYTES];
   uint8_t sk[CRYPTO_SECRETKEYBYTES];
 
+  memset(m, 0x0, MLEN + CRYPTO_BYTES);
+
   for(int r = 0; r < MLEN; r++) {
     m[r] = (uint8_t)r;
   }
 
+  uint64_t start = ibex_mcycle_read();
   crypto_sign_keypair(pk, sk);
-  LOG_INFO("created keypair");
+  uint64_t end = ibex_mcycle_read();
+  if (end - start > UINT32_MAX) {
+    LOG_FATAL("crypto_sign_keypair() took more than UINT32_MAX cycles");
+    return false;
+  }
+  LOG_INFO("creating keypair took %u cycles", (uint32_t)(end - start));
+
+  start = ibex_mcycle_read();
   crypto_sign(sm, &smlen, m, MLEN, sk);
-  LOG_INFO("signed message");
+  end = ibex_mcycle_read();
+  if (end - start > UINT32_MAX) {
+    LOG_FATAL("crypto_sign() took more than UINT32_MAX cycles");
+    return false;
+  }
+  LOG_INFO("signing message took %u cycles", (uint32_t)(end - start));
+
+  start = ibex_mcycle_read();
   ret = crypto_sign_open(m2, &mlen, sm, smlen, pk);
-  LOG_INFO("verified signed message");
+  end = ibex_mcycle_read();
+  if (end - start > UINT32_MAX) {
+    LOG_FATAL("crypto_sign_open() took more than UINT32_MAX cycles");
+    return false;
+  }
+  LOG_INFO("verifying message took %u cycles", (uint32_t)(end - start));
+
   if(ret) {
     LOG_INFO("Verification failed.");
     return false;
