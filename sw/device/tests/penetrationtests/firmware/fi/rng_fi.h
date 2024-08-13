@@ -68,6 +68,20 @@ status_t handle_rng_fi_edn_resp_ack(ujson_t *uj);
 status_t handle_rng_fi_edn_init(ujson_t *uj);
 
 /**
+ * rng_fi_entropy_src_bias_fw_override command handler.
+ *
+ * Write a fixed seed into the FW_OV_WR_DATA register in the FW override mode.
+ * This seed goes through the conditioner into the CSRNG. The software interface
+ * of the CSRNG is used to extract the random data.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj);
+
+/**
  * csrng_bias command handler.
  *
  * Generate known data using the CSRNG.

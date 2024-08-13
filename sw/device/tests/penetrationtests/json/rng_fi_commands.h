@@ -14,6 +14,7 @@ extern "C" {
 #define RNGFI_SUBCOMMAND(_, value) \
     value(_, CsrngInit) \
     value(_, CsrngBias) \
+    value(_, CsrngBiasFWOverride) \
     value(_, EdnInit) \
     value(_, EdnRespAck) \
     value(_, EdnBias) \

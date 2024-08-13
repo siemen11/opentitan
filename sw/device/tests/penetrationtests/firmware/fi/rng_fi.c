@@ -38,6 +38,7 @@ enum {
   kEdnKatWordsPerBlock = 4,
   kEntropyFifoBufferSize = 32,
   kMaxReadCountNotBlocking = 32,
+  kKatTestTimeoutAttempts = 256,
 };
 
 static dif_rv_core_ibex_t rv_core_ibex;
@@ -48,6 +49,11 @@ static dif_edn_t edn1;
 static bool disable_health_check;
 
 static bool firmware_override_init;
+
+static  const uint32_t kInputMsg[kEntropyFifoBufferSize] = {
+      0xa52a0da9, 0xcae141b2, 0x6d5bab9d, 0x2c3e5cc0, 0x225afc93, 0x5d31a610,
+      0x91b7f960, 0x0d566bb3, 0xef35e170, 0x94ba7d8e, 0x534eb741, 0x6b60b0da,
+};
 
 // Seed material for the EDN KAT instantiate command.
 const dif_edn_seed_material_t kEdnKatSeedMaterialInstantiate = {
@@ -104,6 +110,56 @@ const uint32_t kExpectedOutput[kEdnKatOutputLen] = {
     0xd40fccb1, 0x87189e99, 0x510494b3, 0x64f7ac0c, 0x2581f391, 0x80b1dc2f,
     0x793e01c5, 0x87b107ae, 0xdb17514c, 0xa43c41b7,
 };
+
+/**
+ * Cleanly disables the SHA3 conditioner while in SHA3 mode, prompting
+ * the release of a conditioned seed.
+ *
+ * If stopping the conditioner fails, due to pending data keep trying for
+ * at most kKatTestTimeoutAttempts.
+ *
+ * @param entropy An entropy source instance.
+ */
+static void stop_sha3_conditioner(dif_entropy_src_t *entropy_src) {
+  uint32_t fail_count = 0;
+  dif_result_t op_result;
+
+  do {
+    op_result = dif_entropy_src_conditioner_stop(entropy_src);
+    if (op_result == kDifIpFifoFull) {
+      fail_count++;
+      CHECK(fail_count < kKatTestTimeoutAttempts);
+    } else {
+      CHECK_DIF_OK(op_result);
+    }
+  } while (op_result == kDifIpFifoFull);
+}
+
+/**
+ * Flushes any previously absorbed entropy from the SHA3 conditioning block.
+ *
+ * @param entropy An entropy source instance.
+ */
+static void flush_sha3_conditioner(dif_entropy_src_t *entropy_src) {
+  // Start and stop the conditioner, without adding any new entropy.
+  CHECK_DIF_OK(dif_entropy_src_conditioner_start(entropy_src));
+  stop_sha3_conditioner(entropy_src);
+
+  int fail_count = 0;
+
+  // Read (and discard) the resulting seed.
+  uint32_t got[kEntropyFifoBufferSize];
+  for (size_t i = 0; i < ARRAYSIZE(got); ++i) {
+    dif_result_t op_result =
+        dif_entropy_src_non_blocking_read(entropy_src, &got[i]);
+    if (op_result == kDifUnavailable) {
+      fail_count++;
+      CHECK(fail_count < kKatTestTimeoutAttempts);
+    } else {
+      CHECK_DIF_OK(op_result);
+    }
+  }
+}
 
 /**
  * Flushes the data entropy buffer until there is no data available to read.
@@ -400,6 +456,78 @@ status_t handle_rng_fi_edn_init(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  uint32_t received_data[kEntropyFifoBufferSize];
+  const dif_csrng_seed_material_t kEmptySeedMaterial = {0};
+
+  CHECK_STATUS_OK(entropy_testutils_stop_all());
+  CHECK_STATUS_OK(
+      entropy_testutils_fw_override_enable(&entropy_src, kEntropyFifoBufferSize,
+                                           /*firmware_override_enable=*/false,
+                                           /*bypass_conditioner=*/false));
+
+  CHECK_DIF_OK(dif_csrng_configure(&csrng));
+
+  // Though most of the entropy_src state is cleared on disable, the
+  // SHA3 conditioner accumulates entropy even from aborted seeds. For
+  // this test though, we must clear any previously absorbed entropy.
+  flush_sha3_conditioner(&entropy_src);
+
+  TRY(dif_entropy_src_conditioner_start(&entropy_src));
+
+  dif_result_t op_result;
+  uint32_t fail_count = 0;
+  uint32_t count;
+  uint32_t total = 0;
+
+  // Load the input data.
+  do {
+    op_result = dif_entropy_src_fw_ov_data_write(
+        &entropy_src, kInputMsg + total, ARRAYSIZE(kInputMsg) - total, &count);
+    total += count;
+    if (op_result == kDifIpFifoFull) {
+      fail_count++;
+      CHECK(fail_count < kKatTestTimeoutAttempts);
+    } else {
+      fail_count = 0;
+      CHECK_DIF_OK(op_result);
+    }
+  } while (total < ARRAYSIZE(kInputMsg));
+
+  sca_set_trigger_high();
+
+  // Cleanly disable the conditioner.
+  stop_sha3_conditioner(&entropy_src);
+
+  CHECK_DIF_OK(dif_csrng_instantiate(&csrng, kDifCsrngEntropySrcToggleEnable,
+                                     &kEmptySeedMaterial));
+
+  CHECK_STATUS_OK(csrng_testutils_cmd_generate_run(&csrng, received_data, ARRAYSIZE(received_data)));
+
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  rng_fi_csrng_output_t uj_output;
+
+  // Send result & ERR_STATUS to host.
+  uj_output.res = 0; // No result is returned.
+  memcpy(uj_output.rand, received_data, sizeof(received_data));
+  uj_output.err_status = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_rng_fi_csrng_output_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
 status_t handle_rng_fi_csrng_bias(ujson_t *uj) {
   // Get the test mode.
   crypto_fi_csrng_mode_t uj_data;
@@ -520,6 +648,8 @@ status_t handle_rng_fi(ujson_t *uj) {
       return handle_rng_fi_csrng_init(uj);
     case kRngFiSubcommandCsrngBias:
       return handle_rng_fi_csrng_bias(uj);
+    case kRngFiSubcommandCsrngBiasFWOverride:
+      return handle_rng_fi_csrng_bias_fw_override(uj);
     case kRngFiSubcommandEdnInit:
       return handle_rng_fi_edn_init(uj);
     case kRngFiSubcommandEdnRespAck:
