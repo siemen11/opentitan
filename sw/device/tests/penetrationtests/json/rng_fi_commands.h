@@ -36,6 +36,13 @@ UJSON_SERDE_STRUCT(CryptoFiCsrngMode, crypto_fi_csrng_mode_t, CRYPTOFI_CSRNG_MOD
     field(err_status, uint32_t)
 UJSON_SERDE_STRUCT(RngFiCsrngOutput, rng_fi_csrng_output_t, RNGFI_CSRNG_OUTPUT);
 
+#define RNGFI_CSRNG_OV_OUTPUT(field, string) \
+    field(res, uint32_t) \
+    field(rand, uint32_t, 12) \
+    field(alerts, uint32_t, 3) \
+    field(err_status, uint32_t)
+UJSON_SERDE_STRUCT(RngFiCsrngOvOutput, rng_fi_csrng_ov_output_t, RNGFI_CSRNG_OV_OUTPUT);
+
 #define RNGFI_ENTRBIAS_OUTPUT(field, string) \
     field(rand, uint32_t, 32) \
     field(alerts, uint32_t, 3) \
