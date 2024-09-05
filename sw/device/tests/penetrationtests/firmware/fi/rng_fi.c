@@ -426,12 +426,22 @@ static void entropy_conditioner_stop(const dif_entropy_src_t *entropy_src) {
   } while (op_result == kDifIpFifoFull);
 }
 
-status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj) {
+status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj, bool static_seed) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
   uint32_t received_data[kCsrngBiasFWFifoBufferSize];
   const dif_csrng_seed_material_t kEmptySeedMaterial = {0};
+
+  uint32_t seed[kCsrngBiasFWFifoBufferSize];
+
+  if (static_seed) {
+    memcpy(seed, kInputMsg, sizeof(kInputMsg));
+  } else {
+    rng_fi_seed_t uj_data;
+    TRY(ujson_deserialize_rng_fi_seed_t(uj, &uj_data));
+    memcpy(seed, uj_data.seed, sizeof(uj_data.seed));
+  }
 
   CHECK_STATUS_OK(entropy_testutils_stop_all());
   CHECK_STATUS_OK(entropy_testutils_fw_override_enable(
@@ -450,7 +460,7 @@ status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj) {
   do {
     uint32_t count;
     dif_result_t op_result = dif_entropy_src_fw_ov_data_write(
-        &entropy_src, kInputMsg + total, ARRAYSIZE(kInputMsg) - total, &count);
+        &entropy_src, seed + total, ARRAYSIZE(seed) - total, &count);
     total += count;
     if (op_result == kDifIpFifoFull) {
       CHECK(fail_count++ < kTestParamEntropySrcMaxAttempts);
@@ -458,7 +468,7 @@ status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj) {
       fail_count = 0;
       CHECK_DIF_OK(op_result);
     }
-  } while (total < ARRAYSIZE(kInputMsg));
+  } while (total < ARRAYSIZE(seed));
 
   sca_set_trigger_high();
 
@@ -614,7 +624,9 @@ status_t handle_rng_fi(ujson_t *uj) {
     case kRngFiSubcommandCsrngBias:
       return handle_rng_fi_csrng_bias(uj);
     case kRngFiSubcommandCsrngBiasFWOverride:
-      return handle_rng_fi_csrng_bias_fw_override(uj);
+      return handle_rng_fi_csrng_bias_fw_override(uj, false);
+    case kRngFiSubcommandCsrngBiasFWOverrideStatic:
+      return handle_rng_fi_csrng_bias_fw_override(uj, true);
     case kRngFiSubcommandEdnInit:
       return handle_rng_fi_edn_init(uj);
     case kRngFiSubcommandEdnRespAck:

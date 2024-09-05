@@ -15,6 +15,7 @@ extern "C" {
     value(_, CsrngInit) \
     value(_, CsrngBias) \
     value(_, CsrngBiasFWOverride) \
+    value(_, CsrngBiasFWOverrideStatic) \
     value(_, EdnInit) \
     value(_, EdnRespAck) \
     value(_, EdnBias) \
@@ -65,6 +66,10 @@ UJSON_SERDE_STRUCT(RngFiEdn, rng_fi_edn_t, RNGFI_EDN);
 #define RNGFI_FWOVERWRITE_HEALTH(field, string) \
     field(disable_health_check, bool)
 UJSON_SERDE_STRUCT(RngFiFwOverwriteHealt, rng_fi_fw_overwrite_health_t, RNGFI_FWOVERWRITE_HEALTH);
+
+#define RNGFI_SEED(field, string) \
+    field(seed, uint32_t, 12)
+UJSON_SERDE_STRUCT(RngFiSeed, rng_fi_seed_t, RNGFI_SEED);
 
 // clang-format on
 

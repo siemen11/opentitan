@@ -77,9 +77,10 @@ status_t handle_rng_fi_edn_init(ujson_t *uj);
  * Faults are injected during the trigger_high & trigger_low.
  *
  * @param uj An initialized uJSON context.
+ * @param static_seed Use static seed or seed provided by user.
  * @return OK or error.
  */
-status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj);
+status_t handle_rng_fi_csrng_bias_fw_override(ujson_t *uj, bool static_seed);
 
 /**
  * csrng_bias command handler.
