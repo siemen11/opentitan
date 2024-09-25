@@ -21,6 +21,7 @@
 #include "sw/device/lib/dif/dif_pinmux.h"
 #include "sw/device/lib/dif/dif_pwm.h"
 #include "sw/device/lib/dif/dif_rv_plic.h"
+#include "sw/device/lib/dif/dif_sram_ctrl.h"
 #include "sw/device/lib/dif/dif_spi_device.h"
 #include "sw/device/lib/dif/dif_spi_host.h"
 #include "sw/device/lib/dif/dif_uart.h"
@@ -1443,6 +1444,16 @@ bool test_main(void) {
       (uint32_t)udiv64_slow(1000000000, kClockFreqPeripheralHz, NULL);
   // Note: DO NOT change this message string without updating the DV testbench.
   LOG_INFO("Computed peripheral clock period.");
+
+  dif_sram_ctrl_t sram_ctrl;
+  CHECK(dif_sram_ctrl_init(mmio_region_from_addr(TOP_EARLGREY_SRAM_CTRL_MAIN_REGS_BASE_ADDR), &sram_ctrl) == kDifOk);
+  CHECK_DIF_OK(dif_sram_ctrl_readback_set(&sram_ctrl, kDifToggleEnabled));
+  LOG_INFO("Enabled readback mode for SRAM main.");
+
+  dif_sram_ctrl_t sram_ctrl_ret;
+  CHECK(dif_sram_ctrl_init(mmio_region_from_addr(TOP_EARLGREY_SRAM_CTRL_MAIN_REGS_BASE_ADDR), &sram_ctrl_ret) == kDifOk);
+  CHECK_DIF_OK(dif_sram_ctrl_readback_set(&sram_ctrl_ret, kDifToggleEnabled));
+  LOG_INFO("Enabled readback mode for SRAM ret.");
 
   // ***************************************************************************
   // Initialize and configure all IPs.

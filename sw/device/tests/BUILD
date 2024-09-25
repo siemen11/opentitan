@@ -4448,6 +4448,7 @@ opentitan_test(
         "//sw/device/lib/dif:pinmux",
         "//sw/device/lib/dif:pwm",
         "//sw/device/lib/dif:rv_plic",
+        "//sw/device/lib/dif:sram_ctrl",
         "//sw/device/lib/dif:spi_device",
         "//sw/device/lib/dif:spi_host",
         "//sw/device/lib/dif:uart",
