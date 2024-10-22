@@ -14,6 +14,7 @@ status_t clear_otbn_load_checksum(void);
 status_t read_otbn_err_bits(dif_otbn_err_bits_t *err_bits);
 status_t read_otbn_load_checksum(uint32_t *checksum);
 
+status_t handle_otbn_fi_char_mem(ujson_t *uj);
 status_t handle_otbn_fi_key_sideload(ujson_t *uj);
 status_t handle_otbn_fi_load_integrity(ujson_t *uj);
 status_t handle_otbn_fi_char_hardware_dmem_op_loop(ujson_t *uj);

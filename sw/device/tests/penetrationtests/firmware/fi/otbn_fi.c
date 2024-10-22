@@ -29,6 +29,10 @@ static dif_keymgr_t keymgr;
 
 // Indicates whether the load_integrity test is already initialized.
 static bool load_integrity_init;
+// Indicates whether the char mem test is already initialized.
+static bool char_mem_init;
+// Indicates whether the char mem test config is valid.
+static bool char_mem_test_cfg_valid;
 // Reference checksum for the load integrity test.
 static uint32_t load_checksum_ref;
 // Load integrity test. Initialize OTBN app, load it, and get interface to
@@ -64,8 +68,19 @@ static const otbn_addr_t kOtbnAppKeySideloadks1l =
 static const otbn_addr_t kOtbnAppKeySideloadks1h =
     OTBN_ADDR_T_INIT(otbn_key_sideload, k_s1_h);
 
+// Config for the otbn.fi.char_mem test.
+static bool char_mem_imem;
+static bool char_mem_dmem;
+static uint32_t char_mem_byte_offset;
+static uint32_t char_mem_num_words;
+
 uint32_t key_share_0_l_ref, key_share_0_h_ref;
 uint32_t key_share_1_l_ref, key_share_1_h_ref;
+
+// NOP macros.
+#define NOP1 "addi x0, x0, 0\n"
+#define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
+#define NOP100 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10
 
 static const dif_keymgr_versioned_key_params_t kKeyVersionedParamsOTBNFI = {
     .dest = kDifKeymgrVersionedKeyDestSw,
@@ -121,6 +136,122 @@ status_t read_otbn_load_checksum(uint32_t *checksum) {
  */
 status_t clear_otbn_load_checksum(void) {
   TRY(dif_otbn_clear_load_checksum(&otbn));
+  return OK_STATUS();
+}
+
+/**
+ * otbn.fi.char_mem command handler.
+ *
+ * Initializes IMEM and DMEM of OTBN with a fixed pattern. Inject a fault and
+ * check whether the data in memory got corrupted.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj The received uJSON data.
+ */
+status_t handle_otbn_fi_char_mem(ujson_t *uj) {
+
+  // Get the test mode. The test mode only can be set at the beginning of a
+  // test.
+  if (!char_mem_test_cfg_valid) {
+    otbn_fi_mem_cfg_t uj_cfg;
+    TRY(ujson_deserialize_otbn_fi_mem_cfg_t(uj, &uj_cfg));
+    char_mem_imem = uj_cfg.imem;
+    char_mem_dmem = uj_cfg.dmem;
+    char_mem_byte_offset = uj_cfg.byte_offset;
+    char_mem_num_words = uj_cfg.num_words;
+    // Set config to valid.
+    char_mem_test_cfg_valid = true;
+  }
+
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Reference values for DMEM and IMEM.
+  uint32_t dmem_array_ref[char_mem_num_words];
+  uint32_t imem_array_ref[char_mem_num_words];
+  if (char_mem_dmem) {
+    memset(dmem_array_ref, 0xab, char_mem_num_words/4);
+  }
+  if (char_mem_imem) {
+    memset(imem_array_ref, 0xdf, char_mem_num_words/4);
+  }
+
+  if (!char_mem_init) {
+    if (char_mem_dmem) {
+      TRY(dif_otbn_dmem_write(&otbn, char_mem_byte_offset, dmem_array_ref, char_mem_num_words/4));
+    }
+    if (char_mem_imem) {
+      TRY(dif_otbn_imem_write(&otbn, char_mem_byte_offset, imem_array_ref, char_mem_num_words/4));
+    }
+    char_mem_init = true;
+  }
+
+  // FI code target.
+  sca_set_trigger_high();
+  asm volatile(NOP100);
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from OTBN.
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  otbn_fi_mem_t uj_output;
+  // Init with all 0 for defaults.
+  memset(uj_output.dmem_data, 0, sizeof(uj_output.dmem_data));
+  memset(uj_output.dmem_addr, 0, sizeof(uj_output.dmem_addr));
+  memset(uj_output.imem_data, 0, sizeof(uj_output.imem_data));
+  memset(uj_output.imem_addr, 0, sizeof(uj_output.imem_addr));
+  uj_output.res = 0;
+
+  // Check DMEM for data errors.
+  size_t fault_pos = 0;
+  if (char_mem_dmem) {
+    uint32_t dmem_array_res[char_mem_num_words];
+    TRY(dif_otbn_dmem_read(&otbn, char_mem_byte_offset, dmem_array_res, char_mem_num_words/4));
+    for (size_t it = 0; it < char_mem_num_words; it++) {
+      if (dmem_array_res[it] != dmem_array_ref[it] && fault_pos < ARRAYSIZE(uj_output.dmem_data)) {
+        uj_output.dmem_data[fault_pos] = dmem_array_res[it];
+        uj_output.dmem_addr[fault_pos] = it;
+        fault_pos++;
+        // Re-init memory.
+        char_mem_init = false;
+        uj_output.res = 1;
+      }
+    }
+  }
+
+
+  // Check IMEM for data errors.
+  uint32_t imem_array_res[char_mem_num_words];
+  if (char_mem_imem) {
+    TRY(dif_otbn_imem_read(&otbn, char_mem_byte_offset, imem_array_res, char_mem_num_words/4));
+    fault_pos = 0;
+    for (size_t it = 0; it < char_mem_num_words; it++) {
+      if (imem_array_res[it] != imem_array_ref[it] && fault_pos < ARRAYSIZE(uj_output.imem_data)) {
+        uj_output.imem_data[fault_pos] = imem_array_res[it];
+        uj_output.imem_addr[fault_pos] = it;
+        fault_pos++;
+        // Re-init memory.
+        char_mem_init = false;
+        uj_output.res = 1;
+      }
+    }
+  }
+
+  // Send result & ERR_STATUS to host.
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_otbn_fi_mem_t, uj, &uj_output);
+
   return OK_STATUS();
 }
 
@@ -578,10 +709,12 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
   // Disable the instruction cache and dummy instructions for FI attacks.
   sca_configure_cpu();
 
-  // The load integrity & key sideloading tests get initialized at the first
-  // run.
+  // The load integrity, key sideloading, and char mem tests get initialized at the
+  // first run.
   load_integrity_init = false;
   key_sideloading_init = false;
+  char_mem_init = false;
+  char_mem_test_cfg_valid = false;
 
   // Read device ID and return to host.
   penetrationtest_device_id_t uj_output;
@@ -618,6 +751,8 @@ status_t handle_otbn_fi(ujson_t *uj) {
       return handle_otbn_fi_load_integrity(uj);
     case kOtbnFiSubcommandKeySideload:
       return handle_otbn_fi_key_sideload(uj);
+    case kOtbnFiSubcommandCharMem:
+      return handle_otbn_fi_char_mem(uj);
     default:
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
