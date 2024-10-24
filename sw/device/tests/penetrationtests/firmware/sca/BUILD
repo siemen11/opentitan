@@ -78,6 +78,7 @@ cc_library(
         "//sw/device/lib/dif:otbn",
         "//sw/device/lib/runtime:log",
         "//sw/device/lib/testing:keymgr_testutils",
+        "//sw/device/lib/testing:otbn_testutils",
         "//sw/device/lib/testing/test_framework:ujson_ottf",
         "//sw/device/lib/ujson",
         "//sw/device/sca/lib:prng",
@@ -85,6 +86,7 @@ cc_library(
         "//sw/device/tests/penetrationtests/firmware/sca/otbn:otbn_key_sideload_sca",
         "//sw/device/tests/penetrationtests/firmware/lib:sca_lib",
         "//sw/device/tests/penetrationtests/json:otbn_sca_commands",
+        "//sw/otbn/crypto:rsa",
     ],
 )
 
