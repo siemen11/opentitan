@@ -15,8 +15,10 @@
 #include "sw/device/tests/penetrationtests/firmware/lib/sca_lib.h"
 #include "sw/device/tests/penetrationtests/json/edn_sca_commands.h"
 
+#include "rv_core_ibex_regs.h"  // Generated
 #include "edn_regs.h"  // Generated
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+
 
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
@@ -66,11 +68,15 @@ static status_t read_rnd_data_reg(uint32_t ibex_rnd_data[4]) {
   // transmitted over the bus. Afterwards, data needs to be transmitted from the
   // randomness FIFO into the RND_DATA register - this is what we want to measure.
   sca_set_trigger_high();
-  TRY(dif_rv_core_ibex_read_rnd_data(&rv_core_ibex, &ibex_rnd_data[0]));
-  TRY(dif_rv_core_ibex_read_rnd_data(&rv_core_ibex, &ibex_rnd_data[1]));
-  TRY(dif_rv_core_ibex_read_rnd_data(&rv_core_ibex, &ibex_rnd_data[2]));
-  TRY(dif_rv_core_ibex_read_rnd_data(&rv_core_ibex, &ibex_rnd_data[3]));
+  asm volatile(NOP30);
+  asm volatile("li t0, %0" : : "i"(TOP_EARLGREY_RV_CORE_IBEX_CFG_BASE_ADDR) : "t0");
+  asm volatile("lw t1, %0(t0)": : "i"(RV_CORE_IBEX_RND_DATA_REG_OFFSET) : "t1");
+  asm volatile(NOP30);
+  asm volatile(NOP30);
   sca_set_trigger_low();
+  // Read RND_DATA which was transmitted from FIFO into RND_DATA register.
+  // Read it after the trigger window to not measure load into Ibex register
+  TRY(dif_rv_core_ibex_read_rnd_data(&rv_core_ibex, &ibex_rnd_data[3]));
   
   return OK_STATUS();
 }
