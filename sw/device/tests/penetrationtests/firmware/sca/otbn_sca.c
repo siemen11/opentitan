@@ -101,21 +101,13 @@ status_t handle_otbn_sca_rsa512_decrypt(ujson_t *uj) {
   uint32_t mode = 2; // Decrypt.
   // RSA512 configuration.
   uint32_t n_limbs = 2;
-  uint32_t num_words = 16;
-  // Create modulus, exponent, and input message buffers.
-  uint32_t kModulus[num_words];
-  uint32_t kExponent[num_words];
-  uint32_t kMessage[num_words];
-  memcpy(kModulus, uj_data.mod, ARRAYSIZE(uj_data.mod) * sizeof(uj_data.mod[0]));
-  memcpy(kExponent, uj_data.exp, ARRAYSIZE(uj_data.exp) * sizeof(uj_data.exp[0]));
-  memcpy(kMessage, uj_data.msg, ARRAYSIZE(uj_data.msg) * sizeof(uj_data.msg[0]));
 
   // Write data into OTBN DMEM.
-  otbn_dmem_write(1, &mode, kOtbnVarRsaMode);
-  otbn_dmem_write(1, &n_limbs, kOtbnVarRsaNLimbs);
-  otbn_dmem_write(num_words, kModulus, kOtbnVarRsaModulus);
-  otbn_dmem_write(num_words, kExponent, kOtbnVarRsaExp);
-  otbn_dmem_write(num_words, kMessage, kOtbnVarRsaInOut);
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarRsaMode, &mode, sizeof(mode)));
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarRsaNLimbs, &n_limbs, sizeof(n_limbs)));
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarRsaModulus, uj_data.mod, sizeof(uj_data.mod)));
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarRsaExp, uj_data.exp, sizeof(uj_data.exp)));
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarRsaInOut, uj_data.msg, sizeof(uj_data.msg)));
 
   sca_set_trigger_high();
   // Give the trigger time to rise.
@@ -126,7 +118,7 @@ status_t handle_otbn_sca_rsa512_decrypt(ujson_t *uj) {
 
   // Send back decryption result to host.
   penetrationtest_otbn_sca_rsa512_dec_out_t uj_output;
-  otbn_dmem_read(num_words, kOtbnVarRsaInOut, uj_output.out);
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarRsaInOut, uj_output.out, sizeof(uj_output.out)));
   RESP_OK(ujson_serialize_penetrationtest_otbn_sca_rsa512_dec_out_t, uj, &uj_output);
   return OK_STATUS();
 }
