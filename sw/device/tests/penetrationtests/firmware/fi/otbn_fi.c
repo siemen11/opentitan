@@ -77,6 +77,11 @@ static uint32_t char_mem_num_words;
 uint32_t key_share_0_l_ref, key_share_0_h_ref;
 uint32_t key_share_1_l_ref, key_share_1_h_ref;
 
+// Config for the otbn.fi.char_dmem_access test.
+static bool char_dmem_access_init;
+#define DMEM_DATA_SIZE 0x400
+uint8_t dmem_data_ref[DMEM_DATA_SIZE];
+
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
 #define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
@@ -251,6 +256,73 @@ status_t handle_otbn_fi_char_mem(ujson_t *uj) {
   uj_output.err_ibx = err_ibx;
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   RESP_OK(ujson_serialize_otbn_fi_mem_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+/**
+ * otbn.fi.char_dmem_access command handler.
+ *
+ * OTBN loads WDRs with words from DMEM. These values are stored in different data section
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj The received uJSON data.
+ */
+status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  if (!char_dmem_access_init) {
+    // Initialize OTBN app, load it, and get interface to OTBN data memory.
+    OTBN_DECLARE_APP_SYMBOLS(otbn_char_dmem_access);
+    const otbn_app_t kOtbnAppCharDmemAccess =
+        OTBN_APP_T_INIT(otbn_char_dmem_access);
+    otbn_load_app(kOtbnAppCharDmemAccess);
+    // Setup OTBN.
+    OTBN_APP_T_INIT(otbn_char_dmem_access);
+    // Get reference DMEM.
+    otbn_execute();
+    otbn_busy_wait_for_done();
+    TRY(dif_otbn_dmem_read(&otbn, 0, dmem_data_ref, DMEM_DATA_SIZE));
+    char_dmem_access_init = true;
+  }
+
+  // FI code target.
+  sca_set_trigger_high();
+  otbn_execute();
+  otbn_busy_wait_for_done();
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from OTBN.
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Read DMEM
+  otbn_fi_data_t uj_output;
+  uj_output.res = 0;
+
+  TRY(dif_otbn_dmem_read(&otbn, 0, uj_output.data, DMEM_DATA_SIZE));
+  if (memcmp(uj_output.data, dmem_data_ref, DMEM_DATA_SIZE) != 0) {
+    uj_output.res = 1;
+    char_dmem_access_init = false;
+  }
+
+  // Read OTBN instruction counter
+  TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
+
+  // Send result & ERR_STATUS to host.
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_otbn_fi_data_t, uj, &uj_output);
 
   return OK_STATUS();
 }
@@ -709,12 +781,13 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
   // Disable the instruction cache and dummy instructions for FI attacks.
   sca_configure_cpu();
 
-  // The load integrity, key sideloading, and char mem tests get initialized at the
-  // first run.
+  // The load integrity, key sideloading, char mem, and char dmem access tests 
+  // get initialized at the first run.
   load_integrity_init = false;
   key_sideloading_init = false;
   char_mem_init = false;
   char_mem_test_cfg_valid = false;
+  char_dmem_access_init = false;
 
   // Read device ID and return to host.
   penetrationtest_device_id_t uj_output;
@@ -753,6 +826,8 @@ status_t handle_otbn_fi(ujson_t *uj) {
       return handle_otbn_fi_key_sideload(uj);
     case kOtbnFiSubcommandCharMem:
       return handle_otbn_fi_char_mem(uj);
+    case kOtbnFiSubcommandCharDmemAccess:
+      return handle_otbn_fi_char_dmem_access(uj);
     default:
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
