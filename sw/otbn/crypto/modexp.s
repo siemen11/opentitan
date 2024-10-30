@@ -36,6 +36,24 @@ sel_sqr_or_sqrmul:
     /* load limb from dmem */
     bn.lid    x9, 0(x21)
 
+    /* randomize dmem with random number from URND */
+    bn.wsrr   w0, URND
+    bn.sid    x0, 0(x21)
+    /**
+     * Assumption: second randomize of w0 not necessary, because of Prince cipher
+     * Leakage behavior (PRC(.) is the Prince cipher for SRAM scrambling):
+     * DMEM write -> leakage of HD(PRC(square), PRC(URND))
+     * w0 write   -> leakage of HD(URND, limb)
+     * DMEM write -> leakage of HD(PRC(URND), PRC(limb))
+     *
+     * HD(URND, limb) != HD(PRC(URND), PRC(limb))
+     *
+     * TODO Is the following an issue? Unavoidable?
+     * if limb == square: HD(PRC(square), PRC(URND)) == HD(PRC(URND), PRC(limb))
+     * else:              HD(PRC(square), PRC(URND)) != HD(PRC(URND), PRC(limb))
+     */
+    /* bn.wsrr   w0, URND */
+
     /* load limb from regfile buffer */
     bn.movr   x11, x8++
 
