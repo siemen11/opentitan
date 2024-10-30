@@ -176,17 +176,21 @@ status_t handle_otbn_fi_char_mem(ujson_t *uj) {
   uint32_t dmem_array_ref[char_mem_num_words];
   uint32_t imem_array_ref[char_mem_num_words];
   if (char_mem_dmem) {
+      // TODO why div 4 and not mul 4?
     memset(dmem_array_ref, 0xab, char_mem_num_words/4);
   }
   if (char_mem_imem) {
+      // TODO why div 4 and not mul 4?
     memset(imem_array_ref, 0xdf, char_mem_num_words/4);
   }
 
   if (!char_mem_init) {
     if (char_mem_dmem) {
+      // TODO why div 4 and not mul 4?
       TRY(dif_otbn_dmem_write(&otbn, char_mem_byte_offset, dmem_array_ref, char_mem_num_words/4));
     }
     if (char_mem_imem) {
+      // TODO why div 4 and not mul 4?
       TRY(dif_otbn_imem_write(&otbn, char_mem_byte_offset, imem_array_ref, char_mem_num_words/4));
     }
     char_mem_init = true;
@@ -220,6 +224,7 @@ status_t handle_otbn_fi_char_mem(ujson_t *uj) {
   size_t fault_pos = 0;
   if (char_mem_dmem) {
     uint32_t dmem_array_res[char_mem_num_words];
+      // TODO why div 4 and not mul 4?
     TRY(dif_otbn_dmem_read(&otbn, char_mem_byte_offset, dmem_array_res, char_mem_num_words/4));
     for (size_t it = 0; it < char_mem_num_words; it++) {
       if (dmem_array_res[it] != dmem_array_ref[it] && fault_pos < ARRAYSIZE(uj_output.dmem_data)) {
@@ -237,6 +242,7 @@ status_t handle_otbn_fi_char_mem(ujson_t *uj) {
   // Check IMEM for data errors.
   uint32_t imem_array_res[char_mem_num_words];
   if (char_mem_imem) {
+      // TODO why div 4 and not mul 4?
     TRY(dif_otbn_imem_read(&otbn, char_mem_byte_offset, imem_array_res, char_mem_num_words/4));
     fault_pos = 0;
     for (size_t it = 0; it < char_mem_num_words; it++) {
