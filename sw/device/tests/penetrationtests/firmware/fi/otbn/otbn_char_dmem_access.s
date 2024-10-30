@@ -80,12 +80,15 @@
 
   ecall
 
-.section .data
+.data
   /*
     Since each .word is a 32-bit value stored little-endian, this is 32 bytes
     laid out in memory as 00, 01, 02, .., 1f. If loaded 256-bit little endian,
     the result will be 0x1f1e1d...020100.
   */
+  .balign 32
+  .globl values
+  values:
   /* Address 0x000: */
   .word 0x03020100
   .word 0x07060504

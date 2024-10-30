@@ -78,9 +78,11 @@ uint32_t key_share_0_l_ref, key_share_0_h_ref;
 uint32_t key_share_1_l_ref, key_share_1_h_ref;
 
 // Config for the otbn.fi.char_dmem_access test.
-static bool char_dmem_access_init;
-#define DMEM_DATA_SIZE 0x400
-uint8_t dmem_data_ref[DMEM_DATA_SIZE];
+OTBN_DECLARE_APP_SYMBOLS(otbn_char_dmem_access);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_char_dmem_access, values);
+
+static const otbn_app_t kOtbnAppCharDmemAccess = OTBN_APP_T_INIT(otbn_char_dmem_access);
+static const otbn_addr_t kOtbnVarCharDmemAccessValues = OTBN_ADDR_T_INIT(otbn_char_dmem_access, values);
 
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
@@ -279,10 +281,6 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
-  // Initialize OTBN app, load it, and get interface to OTBN data memory.
-  OTBN_DECLARE_APP_SYMBOLS(otbn_char_dmem_access);
-  const otbn_app_t kOtbnAppCharDmemAccess =
-      OTBN_APP_T_INIT(otbn_char_dmem_access);
   otbn_load_app(kOtbnAppCharDmemAccess);
 
   // FI code target.
@@ -306,7 +304,7 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   otbn_fi_data_t uj_output;
   uj_output.res = 0;
 
-  TRY(dif_otbn_dmem_read(&otbn, 0, uj_output.data, 0x400));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarCharDmemAccessValues, uj_output.data, ARRAYSIZE(uj_output.data)));
 
   // // Read OTBN instruction counter
   // TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
@@ -780,7 +778,6 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
   key_sideloading_init = false;
   char_mem_init = false;
   char_mem_test_cfg_valid = false;
-  char_dmem_access_init = false;
 
   // Read device ID and return to host.
   penetrationtest_device_id_t uj_output;
