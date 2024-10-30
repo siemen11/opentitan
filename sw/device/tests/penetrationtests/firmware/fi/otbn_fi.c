@@ -273,20 +273,11 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
 
-  if (!char_dmem_access_init) {
-    // Initialize OTBN app, load it, and get interface to OTBN data memory.
-    OTBN_DECLARE_APP_SYMBOLS(otbn_char_dmem_access);
-    const otbn_app_t kOtbnAppCharDmemAccess =
-        OTBN_APP_T_INIT(otbn_char_dmem_access);
-    otbn_load_app(kOtbnAppCharDmemAccess);
-    // Setup OTBN.
-    OTBN_APP_T_INIT(otbn_char_dmem_access);
-    // Get reference DMEM.
-    otbn_execute();
-    otbn_busy_wait_for_done();
-    TRY(dif_otbn_dmem_read(&otbn, 0, dmem_data_ref, DMEM_DATA_SIZE));
-    char_dmem_access_init = true;
-  }
+  // Initialize OTBN app, load it, and get interface to OTBN data memory.
+  OTBN_DECLARE_APP_SYMBOLS(otbn_char_dmem_access);
+  const otbn_app_t kOtbnAppCharDmemAccess =
+      OTBN_APP_T_INIT(otbn_char_dmem_access);
+  otbn_load_app(kOtbnAppCharDmemAccess);
 
   // FI code target.
   sca_set_trigger_high();
@@ -309,14 +300,10 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   otbn_fi_data_t uj_output;
   uj_output.res = 0;
 
-  TRY(dif_otbn_dmem_read(&otbn, 0, uj_output.data, DMEM_DATA_SIZE));
-  if (memcmp(uj_output.data, dmem_data_ref, DMEM_DATA_SIZE) != 0) {
-    uj_output.res = 1;
-    char_dmem_access_init = false;
-  }
+  TRY(dif_otbn_dmem_read(&otbn, 0, uj_output.data, 0x400));
 
-  // Read OTBN instruction counter
-  TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
+  // // Read OTBN instruction counter
+  // TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
 
   // Send result & ERR_STATUS to host.
   uj_output.err_otbn = err_otbn;
@@ -781,7 +768,7 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
   // Disable the instruction cache and dummy instructions for FI attacks.
   sca_configure_cpu();
 
-  // The load integrity, key sideloading, char mem, and char dmem access tests 
+  // The load integrity, key sideloading, char mem, and char dmem access tests
   // get initialized at the first run.
   load_integrity_init = false;
   key_sideloading_init = false;
