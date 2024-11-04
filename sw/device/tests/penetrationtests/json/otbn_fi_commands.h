@@ -66,7 +66,7 @@ UJSON_SERDE_STRUCT(OtbnFiMemOutput, otbn_fi_mem_t, OTBNFI_MEM_OUTPUT);
 
 #define OTBNFI_DATA_OUTPUT(field, string) \
     field(res, uint32_t) \
-    field(data, uint8_t, 0x40) \
+    field(data, uint32_t, 256) \
     field(insn_cnt, uint32_t) \
     field(err_otbn, uint32_t) \
     field(err_ibx, uint32_t) \

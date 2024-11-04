@@ -303,9 +303,8 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   // Read DMEM
   otbn_fi_data_t uj_output;
   uj_output.res = 0;
-
-  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarCharDmemAccessValues, uj_output.data, ARRAYSIZE(uj_output.data)));
-
+  memset(uj_output.data, 0, sizeof(uj_output.data));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarCharDmemAccessValues, uj_output.data, sizeof(uj_output.data)));
   // // Read OTBN instruction counter
   // TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
 
