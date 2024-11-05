@@ -12,3 +12,10 @@ otbn_binary(
         "otbn_key_sideload_sca.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_insn_carry_flag",
+    srcs = [
+        "otbn_insn_carry_flag.s",
+    ],
+)

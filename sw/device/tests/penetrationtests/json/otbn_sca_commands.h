@@ -19,6 +19,7 @@ extern "C" {
 #define OTBNSCA_SUBCOMMAND(_, value) \
     value(_, Init) \
     value(_, InitKeyMgr) \
+    value(_, InsnCarryFlag) \
     value(_, Ecc256EcdsaKeygenFvsrSeedBatch) \
     value(_, Ecc256EcdsaKeygenFvsrKeyBatch) \
     value(_, Ecc256SetSeed) \
@@ -66,6 +67,10 @@ UJSON_SERDE_STRUCT(PenetrationtestOtbnScaRsa512Dec, penetrationtest_otbn_sca_rsa
 #define OTBN_SCA_RSA512_DEC_OUT(field, string) \
     field(out, uint8_t, 64)
 UJSON_SERDE_STRUCT(PenetrationtestOtbnScaRsa512DecOut, penetrationtest_otbn_sca_rsa512_dec_out_t, OTBN_SCA_RSA512_DEC_OUT);
+
+#define OTBN_SCA_BIG_NUM(field, string) \
+    field(big_num, uint32_t, 8)
+UJSON_SERDE_STRUCT(PenetrationtestOtbnScaBigNum, penetrationtest_otbn_sca_big_num_t, OTBN_SCA_BIG_NUM);
 
 // clang-format on
 

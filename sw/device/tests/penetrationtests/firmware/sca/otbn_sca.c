@@ -77,6 +77,14 @@ static const otbn_addr_t kOtbnVarRsaInOut = OTBN_ADDR_T_INIT(rsa, inout);
 static const otbn_addr_t kOtbnVarRsaModulus = OTBN_ADDR_T_INIT(rsa, modulus);
 static const otbn_addr_t kOtbnVarRsaExp = OTBN_ADDR_T_INIT(rsa, exp);
 
+// INSN Carry Flag OTBN App.
+OTBN_DECLARE_APP_SYMBOLS(otbn_insn_carry_flag);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_insn_carry_flag, big_num);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_insn_carry_flag, big_num_out);
+
+static const otbn_app_t kOtbnAppInsnCarryFlag = OTBN_APP_T_INIT(otbn_insn_carry_flag);
+static const otbn_addr_t kOtbnVarInsnCarryFlagBigNum = OTBN_ADDR_T_INIT(otbn_insn_carry_flag, big_num);
+static const otbn_addr_t kOtbnVarInsnCarryFlagBigNumOut = OTBN_ADDR_T_INIT(otbn_insn_carry_flag, big_num_out);
 
 /**
  * Clears the OTBN DMEM and IMEM.
@@ -188,6 +196,29 @@ status_t handle_otbn_sca_key_sideload_fvsr(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_otbn_sca_insn_carry_flag(ujson_t *uj) {
+  // Get big number (256 bit).
+  penetrationtest_otbn_sca_big_num_t uj_data;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_big_num_t(uj, &uj_data));
+
+  // Load app and write received big_num into DMEM.
+  otbn_load_app(kOtbnAppInsnCarryFlag);
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarInsnCarryFlagBigNum, uj_data.big_num, sizeof(uj_data.big_num)));
+
+  sca_set_trigger_high();
+  otbn_execute();
+  otbn_busy_wait_for_done();
+  sca_set_trigger_low();
+
+  penetrationtest_otbn_sca_big_num_t uj_output;
+  memset(uj_output.big_num, 0, sizeof(uj_output.big_num));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarInsnCarryFlagBigNumOut, uj_output.big_num, sizeof(uj_output.big_num)));
+
+  RESP_OK(ujson_serialize_penetrationtest_otbn_sca_big_num_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
 status_t handle_otbn_sca_init_keymgr(ujson_t *uj) {
   if (kBootStage != kBootStageOwner) {
     TRY(keymgr_testutils_startup(&keymgr, &kmac));
@@ -246,6 +277,8 @@ status_t handle_otbn_sca(ujson_t *uj) {
       return handle_otbn_sca_init(uj);
     case kOtbnScaSubcommandInitKeyMgr:
       return handle_otbn_sca_init_keymgr(uj);
+    case kOtbnScaSubcommandInsnCarryFlag:
+      return handle_otbn_sca_insn_carry_flag(uj);
     case kOtbnScaSubcommandEcc256EcdsaKeygenFvsrSeedBatch:
       return handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_seed_batch(uj);
     case kOtbnScaSubcommandEcc256EcdsaKeygenFvsrKeyBatch:

@@ -85,6 +85,18 @@ status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_key_batch(ujson_t *uj);
 status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_seed_batch(ujson_t *uj);
 
 /**
+ * otbn.sca.insn.carry_flag command handler.
+ * 
+ * Receive big_num from host. On OTBN, add big_num + big_num and get the
+ * carry flag. If the carry flag is not set, return the result. If the carry
+ * flag is set, return random number. Checks whether carry flag is leaking.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_otbn_sca_insn_carry_flag(ujson_t *uj);
+
+/**
  * Initializes the Keymanager used for the OTBN SCA tests.
  *
  * @param uj An initialized uJSON context.
