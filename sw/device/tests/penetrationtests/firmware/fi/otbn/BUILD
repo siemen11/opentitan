@@ -54,3 +54,10 @@ otbn_binary(
         "otbn_load_integrity.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_char_rf",
+    srcs = [
+        "otbn_char_rf.s",
+    ],
+)

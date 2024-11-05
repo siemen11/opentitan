@@ -84,10 +84,30 @@ OTBN_DECLARE_SYMBOL_ADDR(otbn_char_dmem_access, values);
 static const otbn_app_t kOtbnAppCharDmemAccess = OTBN_APP_T_INIT(otbn_char_dmem_access);
 static const otbn_addr_t kOtbnVarCharDmemAccessValues = OTBN_ADDR_T_INIT(otbn_char_dmem_access, values);
 
+// Config for the otbn.fi.char_rf test.
+OTBN_DECLARE_APP_SYMBOLS(otbn_char_rf);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_char_rf, otbn_ref_values);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_char_rf, otbn_res_values_gpr);
+OTBN_DECLARE_SYMBOL_ADDR(otbn_char_rf, otbn_res_values_wdr);
+
+static const otbn_app_t kOtbnAppCharRF = OTBN_APP_T_INIT(otbn_char_rf);
+static const otbn_addr_t kOtbnVarCharRFRefValues = OTBN_ADDR_T_INIT(otbn_char_rf, otbn_ref_values);
+static const otbn_addr_t kOtbnVarCharRFResValuesGPR = OTBN_ADDR_T_INIT(otbn_char_rf, otbn_res_values_gpr);
+static const otbn_addr_t kOtbnVarCharRFResValuesWDR = OTBN_ADDR_T_INIT(otbn_char_rf, otbn_res_values_wdr);
+
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
 #define NOP10 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1 NOP1
 #define NOP100 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10 NOP10
+
+// Reference values.
+static const uint32_t ref_values[32] = {
+    0x1BADB002, 0x8BADF00D, 0xA5A5A5A5, 0xABABABAB, 0xABBABABE, 0xABADCAFE,
+    0xBAAAAAAD, 0xBAD22222, 0xBBADBEEF, 0xBEBEBEBE, 0xBEEFCACE, 0xC00010FF,
+    0xCAFED00D, 0xCAFEFEED, 0xCCCCCCCC, 0xCDCDCDCD, 0x0D15EA5E, 0xDEAD10CC,
+    0xDEADBEEF, 0xDEADCAFE, 0xDEADC0DE, 0xDEADFA11, 0xDEADF00D, 0xDEFEC8ED,
+    0xDEADDEAD, 0xD00D2BAD, 0xEBEBEBEB, 0xFADEDEAD, 0xFDFDFDFD, 0xFEE1DEAD,
+    0xFEEDFACE, 0xFEEEFEEE};
 
 static const dif_keymgr_versioned_key_params_t kKeyVersionedParamsOTBNFI = {
     .dest = kDifKeymgrVersionedKeyDestSw,
@@ -147,6 +167,79 @@ status_t clear_otbn_load_checksum(void) {
 }
 
 /**
+ * otbn.fi.char_rf command handler.
+ *
+ * Init GPRs and WDRs of OTBN with reference values. Inject faults during 10000
+ * NOPS. Read back GPRs and WDRs and compare against reference values. Report
+ * faulty values back to host.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_otbn_fi_char_register_file(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Init application and load reference values into DMEM.
+  otbn_load_app(kOtbnAppCharRF);
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnVarCharRFRefValues, ref_values, sizeof(ref_values)));
+
+  sca_set_trigger_high();
+  otbn_execute();
+  otbn_busy_wait_for_done();
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from OTBN.
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Read GPR RF values from DMEM.
+  uint32_t res_values_gpr[29];
+  memset(res_values_gpr, 0, sizeof(res_values_gpr));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarCharRFResValuesGPR, res_values_gpr, sizeof(res_values_gpr)));
+
+  // Compare GPR RF values to reference values.
+  otbn_fi_rf_char_t uj_output;
+  memset(uj_output.faulty_gpr, 0, sizeof(uj_output.faulty_gpr));
+  uj_output.res = 0;
+  for (size_t it = 0; it < ARRAYSIZE(res_values_gpr); it++) {
+    if (res_values_gpr[it] != ref_values[it]) {
+      uj_output.res = 1;
+      uj_output.faulty_gpr[it] = res_values_gpr[it];
+    }
+  }
+
+  // Read WDR RF values from DMEM.
+  uint32_t res_values_wdr[256];
+  memset(res_values_wdr, 0, sizeof(res_values_wdr));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnVarCharRFResValuesWDR, res_values_wdr, sizeof(res_values_wdr)));
+  
+  // Compare WDR RF values to reference values.
+  memset(uj_output.faulty_wdr, 0, sizeof(uj_output.faulty_wdr));
+  for (size_t it = 0; it < ARRAYSIZE(res_values_wdr); it++) {
+    if (res_values_wdr[it] != ref_values[it % 32]) {
+      uj_output.res = 1;
+      uj_output.faulty_wdr[it] = res_values_wdr[it];
+    }
+  }
+
+  // Send result & ERR_STATUS to host.
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_otbn_fi_rf_char_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+/**
  * otbn.fi.char_mem command handler.
  *
  * Initializes IMEM and DMEM of OTBN with a fixed pattern. Inject a fault and
@@ -154,7 +247,8 @@ status_t clear_otbn_load_checksum(void) {
  *
  * Faults are injected during the trigger_high & trigger_low.
  *
- * @param uj The received uJSON data.
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
  */
 status_t handle_otbn_fi_char_mem(ujson_t *uj) {
 
@@ -740,6 +834,7 @@ status_t handle_otbn_fi_init_keymgr(ujson_t *uj) {
  * @param uj The received uJSON data.
  */
 status_t handle_otbn_fi_init(ujson_t *uj) {
+  LOG_INFO("in init");
   // Configure the entropy complex for OTBN. Set the reseed interval to max
   // to avoid a non-constant trigger window.
   TRY(sca_configure_entropy_source_max_reseed_interval());
@@ -811,6 +906,8 @@ status_t handle_otbn_fi(ujson_t *uj) {
       return handle_otbn_fi_char_mem(uj);
     case kOtbnFiSubcommandCharDmemAccess:
       return handle_otbn_fi_char_dmem_access(uj);
+    case kOtbnFiSubcommandCharRF:
+      return handle_otbn_fi_char_register_file(uj);
     default:
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();

@@ -20,6 +20,7 @@ extern "C" {
     value(_, CharHardwareDmemOpLoop) \
     value(_, CharMem) \
     value(_, CharDmemAccess) \
+    value(_, CharRF) \
     value(_, LoadIntegrity) \
     value(_, KeySideload)
 UJSON_SERDE_ENUM(OtbnFiSubcommand, otbn_fi_subcommand_t, OTBNFI_SUBCOMMAND);
@@ -72,6 +73,15 @@ UJSON_SERDE_STRUCT(OtbnFiMemOutput, otbn_fi_mem_t, OTBNFI_MEM_OUTPUT);
     field(err_ibx, uint32_t) \
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiDataOutput, otbn_fi_data_t, OTBNFI_DATA_OUTPUT);
+
+#define OTBNFI_RF_CHAR_OUTPUT(field, string) \
+    field(res, uint32_t) \
+    field(faulty_gpr, uint32_t, 29) \
+    field(faulty_wdr, uint32_t, 256) \
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(OtbnFiRfCharOutput, otbn_fi_rf_char_t, OTBNFI_RF_CHAR_OUTPUT);
 
 // clang-format on
 
