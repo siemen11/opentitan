@@ -32,7 +32,7 @@
  */
 sel_sqr_or_sqrmul:
   /* iterate over all limbs */
-  loop      x30, 4
+  loop      x30, 6
     /* load limb from dmem */
     bn.lid    x9, 0(x21)
 
