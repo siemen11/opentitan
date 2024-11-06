@@ -212,7 +212,9 @@ status_t handle_otbn_fi_char_register_file(ujson_t *uj) {
   for (size_t it = 0; it < ARRAYSIZE(res_values_gpr); it++) {
     if (res_values_gpr[it] != ref_values[it]) {
       uj_output.res = 1;
-      uj_output.faulty_gpr[it] = res_values_gpr[it];
+      // Report reference value XOR faulty value back to also detect faulty values
+      // that are 0.
+      uj_output.faulty_gpr[it] = res_values_gpr[it] ^ ref_values[it];
     }
   }
 
@@ -226,7 +228,9 @@ status_t handle_otbn_fi_char_register_file(ujson_t *uj) {
   for (size_t it = 0; it < ARRAYSIZE(res_values_wdr); it++) {
     if (res_values_wdr[it] != ref_values[it % 32]) {
       uj_output.res = 1;
-      uj_output.faulty_wdr[it] = res_values_wdr[it];
+      // Report reference value XOR faulty value back to also detect faulty values
+      // that are 0.
+      uj_output.faulty_wdr[it] = res_values_wdr[it] ^ ref_values[it % 32];
     }
   }
 
