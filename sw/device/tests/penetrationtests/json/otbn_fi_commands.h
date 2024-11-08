@@ -20,6 +20,8 @@ extern "C" {
     value(_, CharHardwareDmemOpLoop) \
     value(_, CharMem) \
     value(_, CharDmemAccess) \
+    value(_, CharBeq) \
+    value(_, CharJal) \
     value(_, CharRF) \
     value(_, LoadIntegrity) \
     value(_, KeySideload)
@@ -38,6 +40,14 @@ UJSON_SERDE_STRUCT(OtbnFiLoopCounterOutput, otbn_fi_loop_counter_t, OTBNFI_LOOP_
     field(err_ibx, uint32_t) \
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiResultOutput, otbn_fi_result_t, OTBNFI_RESULT_OUTPUT);
+
+#define OTBNFI_RESULT_CNT_OUTPUT(field, string) \
+    field(result, uint32_t) \
+    field(insn_cnt, uint32_t) \
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(OtbnFiResultCntOutput, otbn_fi_result_cnt_t, OTBNFI_RESULT_CNT_OUTPUT);
 
 #define OTBNFI_KEY_OUTPUT(field, string) \
     field(res, uint32_t) \

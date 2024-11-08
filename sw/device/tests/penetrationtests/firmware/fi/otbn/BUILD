@@ -61,3 +61,17 @@ otbn_binary(
         "otbn_char_rf.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_char_beq",
+    srcs = [
+        "otbn_char_beq.s",
+    ],
+)
+
+otbn_binary(
+    name = "otbn_char_jal",
+    srcs = [
+        "otbn_char_jal.s",
+    ],
+)
