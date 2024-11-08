@@ -73,9 +73,10 @@
   bn.lid    x1++, 0x60(x31)
 
   /* 10000 NOPs (FI target). */
-  loopi 10, 2
+  loopi 10, 3
     loopi 1000, 1
       nop
+    nop
 
   /* Read GPR RF into DMEM. */
   la x31, otbn_res_values_gpr
