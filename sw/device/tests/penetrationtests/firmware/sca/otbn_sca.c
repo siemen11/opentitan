@@ -47,6 +47,10 @@ enum {
    * point coordinates.
    */
   kEcc256NumWords = kEcc256NumBytes / sizeof(uint32_t),
+  /**
+   * Max number of traces per batch.
+   */
+  kNumBatchOpsMax = 256,
 };
 
 // Data structs for key sideloading test.
@@ -136,6 +140,47 @@ static status_t clear_otbn(void) {
 }
 
 /**
+ * Generate masked shared.
+ * 
+ * If mask_en is set, generate a random share.
+ * If mask_en is not set, set share to 0.
+ *
+ * @param dest_array          Destination array.
+ * @param mask_en             Masking enabled or disabled.
+ * @param len                 Length of the array.
+ */
+void gen_mask_data(uint32_t *dest_array, bool mask_en, size_t len) {
+  if (mask_en) {
+    for (size_t j = 0; j < len; ++j) {
+      dest_array[j] = prng_rand_uint32();
+    }
+  } else {
+    memset(dest_array, 0, len * sizeof(dest_array[0]));
+  }
+}
+
+/**
+ * Generate a FvsR data set.
+ * 
+ * If fixed is set, copy src_fixed_array into dest_array.
+ * If fixed is not set, generate random data.
+ *
+ * @param dest_array          Destination array.
+ * @param fixed               Fixed or random set.
+ * @param src_fixed_array     Source fixed array.
+ * @param len                 Length of the array.
+ */
+void gen_fvsr_data(uint32_t *dest_array, bool fixed, uint32_t *src_fixed_array, size_t len) {
+  if (fixed) {
+    memcpy(dest_array, src_fixed_array, len * sizeof(src_fixed_array[0]));
+  } else {
+    for (size_t j = 0; j < len; ++j) {
+      dest_array[j] = prng_rand_uint32();
+    }
+  }
+}
+
+/**
  * Signs a message with ECDSA using the P-256 curve.
  *
  * R = k*G
@@ -181,20 +226,217 @@ static status_t p256_ecdsa_sign(const uint32_t *msg, const uint32_t *private_key
   return OK_STATUS();
 }
 
+status_t handle_otbn_sca_ecdsa_p256_sign_fvsr_batch(ujson_t *uj) {
+  // Get number of traces.
+  penetrationtest_otbn_sca_num_traces_t uj_data_num_traces;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_num_traces_t(uj, &uj_data_num_traces));
+
+  if (uj_data_num_traces.num_traces > kNumBatchOpsMax) {
+    return OUT_OF_RANGE();
+  }
+
+  // Get masks off or on.
+  penetrationtest_otbn_sca_en_masks_t uj_data_masks;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_en_masks_t(uj, &uj_data_masks));
+
+  // Get fixed message and key.
+  penetrationtest_otbn_sca_ecdsa_p256_sign_t uj_data;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_ecdsa_p256_sign_t(uj, &uj_data));
+
+  /*uint32_t ecc256_secret_k[2 * kEcc256NumWords];
+  memset(ecc256_secret_k, 0, sizeof(ecc256_secret_k));
+  memcpy(ecc256_secret_k, uj_data.k0, sizeof(uj_data.k0));
+  memcpy(ecc256_secret_k + kEcc256NumWords, uj_data.k1, sizeof(uj_data.k1));*/
+
+  uint32_t ecc256_message_batch[kNumBatchOpsMax][kEcc256NumWords];
+
+  uint32_t ecc256_private_key_d0_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_private_key_d1_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_private_key_d_batch[kNumBatchOpsMax][2 * kEcc256NumWords];
+
+  uint32_t ecc256_secret_key_k0_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_secret_key_k1_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_secret_key_k_batch[kNumBatchOpsMax][2 * kEcc256NumWords];
+
+  // Generate the FvsR data set. For each trace, message, k, and d is either set to fixed
+  // received from the host over uJSON or random.
+  bool run_fixed = true;
+  for (size_t i = 0; i < uj_data_num_traces.num_traces; ++i) {
+    // Set message.
+    gen_fvsr_data(ecc256_message_batch[i], run_fixed, uj_data.msg, kEcc256NumWords);
+
+    // If the run is fixed, take the private key received over uJSON. Else,
+    // generate a random private key.
+    // Set message.
+    gen_fvsr_data(ecc256_private_key_d0_batch[i], run_fixed, uj_data.d0, kEcc256NumWords);
+
+    // When masks are on, set fixed or random private key d1. If masks are off, set to 0.
+    gen_mask_data(ecc256_private_key_d1_batch[i], uj_data_masks.en_masks, kEcc256NumWords);
+
+    // Combine both shares 
+    memcpy(ecc256_private_key_d_batch[i], ecc256_private_key_d0_batch[i],
+           sizeof(ecc256_private_key_d0_batch[i]));
+    memcpy(ecc256_private_key_d_batch[i] + kEcc256NumWords, ecc256_private_key_d1_batch[i],
+           sizeof(ecc256_private_key_d1_batch[i]));
+
+    // Set random secret key k0.
+    // If the run is fixed, take the private key received over uJSON. Else,
+    // generate a random private key.
+    gen_fvsr_data(ecc256_secret_key_k0_batch[i], run_fixed, uj_data.k0, kEcc256NumWords);
+
+    // When masks are on, set random secret key k1. If masks are off, set to 0.
+    gen_mask_data(ecc256_secret_key_k1_batch[i], uj_data_masks.en_masks, kEcc256NumWords);
+
+    // Combine both shares k0 and k1 to k.
+    memcpy(ecc256_secret_key_k_batch[i], ecc256_secret_key_k0_batch[i],
+           sizeof(ecc256_secret_key_k0_batch[i]));
+    memcpy(ecc256_secret_key_k_batch[i] + kEcc256NumWords, ecc256_secret_key_k1_batch[i],
+           sizeof(ecc256_secret_key_k1_batch[i]));
+
+    run_fixed = prng_rand_uint32() & 0x1;
+  }
+
+  // Last signature output.
+  uint32_t ecc256_signature_r[kEcc256NumWords];
+  uint32_t ecc256_signature_s[kEcc256NumWords];
+  // Run num_traces ECDSA operations.
+  for (size_t i = 0; i < uj_data_num_traces.num_traces; ++i) {
+    otbn_load_app(kOtbnAppP256Ecdsa);
+
+    // Start the operation.
+    p256_ecdsa_sign(uj_data.msg, ecc256_private_key_d_batch[i], ecc256_signature_r,
+                    ecc256_signature_s, ecc256_secret_key_k_batch[i]);
+  }
+
+  // Send back the last signature to host.
+  penetrationtest_otbn_sca_ecdsa_p256_signature_t uj_output;
+  memcpy(uj_output.r, ecc256_signature_r, sizeof(ecc256_signature_r));
+  memcpy(uj_output.s, ecc256_signature_s, sizeof(ecc256_signature_s));
+  RESP_OK(ujson_serialize_penetrationtest_otbn_sca_ecdsa_p256_signature_t, uj, &uj_output);
+
+  // Clear OTBN memory
+  TRY(clear_otbn());
+
+  return OK_STATUS();
+}
+
+status_t handle_otbn_sca_ecdsa_p256_sign_batch(ujson_t *uj) {
+  // Get number of traces.
+  penetrationtest_otbn_sca_num_traces_t uj_data_num_traces;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_num_traces_t(uj, &uj_data_num_traces));
+
+  if (uj_data_num_traces.num_traces > kNumBatchOpsMax) {
+    return OUT_OF_RANGE();
+  }
+
+  // Get masks off or on.
+  penetrationtest_otbn_sca_en_masks_t uj_data_masks;
+  TRY(ujson_deserialize_penetrationtest_otbn_sca_en_masks_t(uj, &uj_data_masks));
+
+  // Create random message, k, and d.
+  uint32_t ecc256_message_batch[kNumBatchOpsMax][kEcc256NumWords];
+
+  uint32_t ecc256_private_key_d0_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_private_key_d1_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_private_key_d_batch[kNumBatchOpsMax][2 * kEcc256NumWords];
+
+  uint32_t ecc256_secret_key_k0_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_secret_key_k1_batch[kNumBatchOpsMax][kEcc256NumWords];
+  uint32_t ecc256_secret_key_k_batch[kNumBatchOpsMax][2 * kEcc256NumWords];
+
+  // Generate the FvsR data set.
+  for (size_t i = 0; i < uj_data_num_traces.num_traces; ++i) {
+    // Generate random message.
+    gen_fvsr_data(ecc256_message_batch[i], false, NULL, kEcc256NumWords);
+
+    // Set random private key d0.
+    gen_fvsr_data(ecc256_private_key_d0_batch[i], false, NULL, kEcc256NumWords);
+
+    // When masks are on, set random private key d1. If masks are off, set to 0.
+    gen_mask_data(ecc256_private_key_d1_batch[i], uj_data_masks.en_masks, kEcc256NumWords);
+
+    // Combine both shares d0 and d1 to d.
+    memcpy(ecc256_private_key_d_batch[i], ecc256_private_key_d0_batch[i],
+           sizeof(ecc256_private_key_d0_batch[i]));
+    memcpy(ecc256_private_key_d_batch[i] + kEcc256NumWords, ecc256_private_key_d1_batch[i],
+           sizeof(ecc256_private_key_d1_batch[i]));
+    
+    // Set random secret key k0.
+    gen_fvsr_data(ecc256_secret_key_k0_batch[i], false, NULL, kEcc256NumWords);
+
+    // When masks are on, set random secret key k1. If masks are off, set to 0.
+    gen_mask_data(ecc256_secret_key_k1_batch[i], uj_data_masks.en_masks, kEcc256NumWords);
+
+    // Combine both shares k0 and k1 to k.
+    memcpy(ecc256_secret_key_k_batch[i], ecc256_secret_key_k0_batch[i],
+           sizeof(ecc256_secret_key_k0_batch[i]));
+    memcpy(ecc256_secret_key_k_batch[i] + kEcc256NumWords, ecc256_secret_key_k1_batch[i],
+           sizeof(ecc256_secret_key_k1_batch[i]));
+  }
+
+  // Last signature output.
+  uint32_t ecc256_signature_r[kEcc256NumWords];
+  uint32_t ecc256_signature_s[kEcc256NumWords];
+  // Run num_traces ECDSA operations.
+  for (size_t i = 0; i < uj_data_num_traces.num_traces; ++i) {
+    otbn_load_app(kOtbnAppP256Ecdsa);
+
+    // Start the operation.
+    p256_ecdsa_sign(ecc256_message_batch[i], ecc256_private_key_d_batch[i], ecc256_signature_r,
+                    ecc256_signature_s, ecc256_secret_key_k_batch[i]);                  
+  }
+
+  // Send back the last signature to host.
+  penetrationtest_otbn_sca_ecdsa_p256_signature_t uj_output;
+  memcpy(uj_output.r, ecc256_signature_r, sizeof(ecc256_signature_r));
+  memcpy(uj_output.s, ecc256_signature_s, sizeof(ecc256_signature_s));
+  RESP_OK(ujson_serialize_penetrationtest_otbn_sca_ecdsa_p256_signature_t, uj, &uj_output);
+
+  // Clear OTBN memory
+  TRY(clear_otbn());
+
+  return OK_STATUS();
+}
+
 status_t handle_otbn_sca_ecdsa_p256_sign(ujson_t *uj) {
+  // Get masks off or on.
+  penetrationtest_otbn_sca_en_masks_t uj_data_masks;
+
   // Get message and key.
   penetrationtest_otbn_sca_ecdsa_p256_sign_t uj_data;
   TRY(ujson_deserialize_penetrationtest_otbn_sca_ecdsa_p256_sign_t(uj, &uj_data));
 
+  // Set of share d1 for masking.
+  uint32_t ecc256_private_key_d1[kEcc256NumWords];
+  memset(ecc256_private_key_d1, 0, sizeof(ecc256_private_key_d1));
+  // If masking is activated, generate random share d1.
+  if (uj_data_masks.en_masks) {
+    for (size_t j = 0; j < kEcc256NumWords; j++) {
+        ecc256_private_key_d1[j] = prng_rand_uint32();
+      }
+  }
+
+  // Set of share k1 for masking.
+  uint32_t ecc256_secret_k1[kEcc256NumWords];
+  memset(ecc256_secret_k1, 0, sizeof(ecc256_secret_k1));
+  // If masking is activated, generate random share d1.
+  if (uj_data_masks.en_masks) {
+    for (size_t j = 0; j < kEcc256NumWords; j++) {
+        ecc256_secret_k1[j] = prng_rand_uint32();
+      }
+  }
+
+  // Combine D0 and D1 into the private key.
   uint32_t ecc256_private_key_d[2 * kEcc256NumWords];
   memset(ecc256_private_key_d, 0, sizeof(ecc256_private_key_d));
   memcpy(ecc256_private_key_d, uj_data.d0, sizeof(uj_data.d0));
-  memcpy(ecc256_private_key_d + kEcc256NumWords, uj_data.d1, sizeof(uj_data.d1));
+  memcpy(ecc256_private_key_d + kEcc256NumWords, ecc256_private_key_d1, sizeof(ecc256_private_key_d1));
 
+  // Combine K0 and K1 into the secret key.
   uint32_t ecc256_secret_k[2 * kEcc256NumWords];
   memset(ecc256_secret_k, 0, sizeof(ecc256_secret_k));
   memcpy(ecc256_secret_k, uj_data.k0, sizeof(uj_data.k0));
-  memcpy(ecc256_secret_k + kEcc256NumWords, uj_data.k1, sizeof(uj_data.k1));
+  memcpy(ecc256_secret_k + kEcc256NumWords, ecc256_secret_k1, sizeof(ecc256_secret_k1));
 
   otbn_load_app(kOtbnAppP256Ecdsa);
 
@@ -414,7 +656,9 @@ status_t handle_otbn_sca(ujson_t *uj) {
     case kOtbnScaSubcommandEcdsaP256Sign:
       return handle_otbn_sca_ecdsa_p256_sign(uj);
     case kOtbnScaSubcommandEcdsaP256SignBatch:
-      return handle_otbn_sca_ecdsa_p256_sign(uj);
+      return handle_otbn_sca_ecdsa_p256_sign_batch(uj);
+    case kOtbnScaSubcommandEcdsaP256SignFvsrBatch:
+      return handle_otbn_sca_ecdsa_p256_sign_fvsr_batch(uj);
     default:
       LOG_ERROR("Unrecognized OTBN SCA subcommand: %d", cmd);
       return INVALID_ARGUMENT();

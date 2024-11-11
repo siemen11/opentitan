@@ -85,11 +85,29 @@ status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_key_batch(ujson_t *uj);
 status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_seed_batch(ujson_t *uj);
 
 /**
- * otbn.sca.ecdsa256.sign command handler.
+ * otbn.sca.ecdsa256.sign_fvsr_batch command handler.
  *
- * Receive big_num from host. On OTBN, add big_num + big_num and get the
- * carry flag. If the carry flag is not set, return the result. If the carry
- * flag is set, return random number. Checks whether carry flag is leaking.
+ * Same as otbn.sca.ecdsa256.sign but in batch mode. Fixed or random message,
+ * fixed or random key, and fixed or random secret is used.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_otbn_sca_ecdsa_p256_sign_fvsr_batch(ujson_t *uj);
+
+/**
+ * otbn.sca.ecdsa256.sign_batch command handler.
+ *
+ * Same as otbn.sca.ecdsa256.sign but in batch mode. Random message, random
+ * key, and random secret is used.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_otbn_sca_ecdsa_p256_sign_batch(ujson_t *uj);
+
+/**
+ * otbn.sca.ecdsa256.sign command handler.
  *
  * @param uj An initialized uJSON context.
  * @return OK or error.
