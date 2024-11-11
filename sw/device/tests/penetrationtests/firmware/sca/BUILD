@@ -88,6 +88,7 @@ cc_library(
         "//sw/device/tests/penetrationtests/firmware/lib:sca_lib",
         "//sw/device/tests/penetrationtests/json:otbn_sca_commands",
         "//sw/otbn/crypto:rsa",
+        "//sw/otbn/crypto:p256_ecdsa_sca",
     ],
 )
 

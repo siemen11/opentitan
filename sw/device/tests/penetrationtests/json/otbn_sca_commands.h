@@ -26,7 +26,9 @@ extern "C" {
     value(_, Ecc256SetC) \
     value(_, Ecc256EnMasks) \
     value(_, KeySideloadFvsr) \
-    value(_, Rsa512Decrypt)
+    value(_, Rsa512Decrypt) \
+    value(_, EcdsaP256Sign) \
+    value(_, EcdsaP256SignBatch)
 UJSON_SERDE_ENUM(OtbnScaSubcommand, otbn_sca_subcommand_t, OTBNSCA_SUBCOMMAND);
 
 #define OTBN_SCA_EN_MASKS(field, string) \
@@ -63,6 +65,19 @@ UJSON_SERDE_STRUCT(PenetrationtestOtbnScaFixedKey, penetrationtest_otbn_sca_fixe
     field(exp, uint8_t, 64) \
     field(msg, uint8_t, 64)
 UJSON_SERDE_STRUCT(PenetrationtestOtbnScaRsa512Dec, penetrationtest_otbn_sca_rsa512_dec_t, OTBN_SCA_RSA512_DEC);
+
+#define OTBN_SCA_ECDSA_P256_SIGN(field, string) \
+    field(msg, uint32_t, 8) \
+    field(d0, uint32_t, 10) \
+    field(d1, uint32_t, 10) \
+    field(k0, uint32_t, 10) \
+    field(k1, uint32_t, 10)
+UJSON_SERDE_STRUCT(PenetrationtestOtbnScaEcdsaP256Sign, penetrationtest_otbn_sca_ecdsa_p256_sign_t, OTBN_SCA_ECDSA_P256_SIGN);
+
+#define OTBN_SCA_ECDSA_P256_SIGNATURE(field, string) \
+    field(r, uint8_t, 32) \
+    field(s, uint8_t, 32)
+UJSON_SERDE_STRUCT(PenetrationtestOtbnScaEcdsaP256Signature, penetrationtest_otbn_sca_ecdsa_p256_signature_t, OTBN_SCA_ECDSA_P256_SIGNATURE);
 
 #define OTBN_SCA_RSA512_DEC_OUT(field, string) \
     field(out, uint8_t, 64)
