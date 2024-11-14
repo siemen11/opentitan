@@ -126,6 +126,11 @@ static const dif_keymgr_versioned_key_params_t kKeyVersionedParamsOTBNFI = {
 };
 
 /**
+ * Callback wrapper for OTBN manual trigger function.
+ */
+static void otbn_manual_trigger(void) { otbn_execute(); }
+
+/**
  * Clears the OTBN DMEM and IMEM.
  *
  * @returns OK or error.
@@ -713,11 +718,10 @@ status_t handle_otbn_fi_char_hardware_dmem_op_loop(ujson_t *uj) {
 
   uint32_t loop_counter;
 
-  // FI code target.
-  sca_set_trigger_high();
-  otbn_execute();
-  otbn_busy_wait_for_done();
-  sca_set_trigger_low();
+  // FI code target. Put Ibex into sleep mode to avoid triggering errors inside
+  // Ibex with FI. Sleep time was determined using ibex_mcycle_read.
+  sca_call_and_sleep(otbn_manual_trigger, 40000, true, true);
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
@@ -836,10 +840,10 @@ status_t handle_otbn_fi_char_unrolled_dmem_op_loop(ujson_t *uj) {
   uint32_t loop_counter;
 
   // FI code target.
-  sca_set_trigger_high();
-  otbn_execute();
-  otbn_busy_wait_for_done();
-  sca_set_trigger_low();
+  // FI code target. Put Ibex into sleep mode to avoid triggering errors inside
+  // Ibex with FI. Sleep time was determined using ibex_mcycle_read.
+  sca_call_and_sleep(otbn_manual_trigger, 1400, true, true);
+
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();
 
