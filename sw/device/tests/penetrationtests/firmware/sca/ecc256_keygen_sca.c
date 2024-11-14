@@ -252,7 +252,7 @@ status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_seed_batch(ujson_t *uj) {
   }
 
   for (size_t i = 0; i < num_traces; ++i) {
-    TRY(p256_run_keygen(kEcc256ModePrivateKeyOnly, batch_share0[i],
+    TRY(p256_run_keygen(kEcc256ModeKeypair, batch_share0[i],
                         batch_share1[i]));
 
     // Read results.
@@ -328,7 +328,7 @@ status_t handle_otbn_sca_ecc256_ecdsa_keygen_fvsr_key_batch(ujson_t *uj) {
   }
 
   for (size_t i = 0; i < num_traces; ++i) {
-    TRY(p256_run_keygen(kEcc256ModePrivateKeyOnly, batch_share0[i],
+    TRY(p256_run_keygen(kEcc256ModeKeypair, batch_share0[i],
                         batch_share1[i]));
 
     // Read results.
