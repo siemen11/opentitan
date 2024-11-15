@@ -518,8 +518,8 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   uj_output.res = 0;
   memset(uj_output.data, 0, sizeof(uj_output.data));
   TRY(dif_otbn_dmem_read(&otbn, kOtbnVarCharDmemAccessValues, uj_output.data, sizeof(uj_output.data)));
-  // // Read OTBN instruction counter
-  // TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
+  // Read OTBN instruction counter
+  TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
 
   // Send result & ERR_STATUS to host.
   uj_output.err_otbn = err_otbn;
