@@ -75,3 +75,10 @@ otbn_binary(
         "otbn_char_jal.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_char_bn_sel",
+    srcs = [
+        "otbn_char_bn_sel.s",
+    ],
+)

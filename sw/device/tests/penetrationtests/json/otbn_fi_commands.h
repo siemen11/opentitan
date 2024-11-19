@@ -23,6 +23,7 @@ extern "C" {
     value(_, CharBeq) \
     value(_, CharJal) \
     value(_, CharRF) \
+    value(_, CharBnSel) \
     value(_, LoadIntegrity) \
     value(_, KeySideload)
 UJSON_SERDE_ENUM(OtbnFiSubcommand, otbn_fi_subcommand_t, OTBNFI_SUBCOMMAND);
@@ -92,6 +93,18 @@ UJSON_SERDE_STRUCT(OtbnFiDataOutput, otbn_fi_data_t, OTBNFI_DATA_OUTPUT);
     field(err_ibx, uint32_t) \
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiRfCharOutput, otbn_fi_rf_char_t, OTBNFI_RF_CHAR_OUTPUT);
+
+#define OTBNFI_BIG_NUM(field, string) \
+    field(big_num, uint32_t, 16)
+UJSON_SERDE_STRUCT(OtbnFiBigNum, otbn_fi_big_num_t, OTBNFI_BIG_NUM);
+
+#define OTBNFI_BIG_NUM_OUTPUT(field, string) \
+    field(big_num, uint32_t, 16) \
+    field(insn_cnt, uint32_t) \
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(OtbnFiBigNumOutput, otbn_fi_big_num_out_t, OTBNFI_BIG_NUM_OUTPUT);
 
 // clang-format on
 
