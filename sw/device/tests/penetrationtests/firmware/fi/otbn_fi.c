@@ -172,6 +172,67 @@ status_t clear_otbn_load_checksum(void) {
 }
 
 /**
+ * otbn.fi.char.bn_wsrr command handler.
+ *
+ * The goal of this test is to manipulate the BN.WSRR instruction or the content
+ * of the registers.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ * It needs to be ensured that the compiler does not optimize this code.
+ *
+ * @param uj The received uJSON data.
+ */
+status_t handle_otbn_fi_char_bn_wsrr(ujson_t *uj) { 
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Initialize OTBN app, load it, and get interface to OTBN data memory.
+  OTBN_DECLARE_APP_SYMBOLS(otbn_char_bn_wsrr);
+  OTBN_DECLARE_SYMBOL_ADDR(otbn_char_bn_wsrr, otbn_res_values_wdr);
+  const otbn_app_t kOtbnAppCharBnWsrr = OTBN_APP_T_INIT(otbn_char_bn_wsrr);
+  static const otbn_addr_t kOtbnAppCharBnWsrrResValuesWDR = OTBN_ADDR_T_INIT(otbn_char_bn_wsrr, otbn_res_values_wdr);
+
+  // Load app and write received big_num into DMEM.
+  otbn_load_app(kOtbnAppCharBnWsrr);
+
+  // FI code target.
+  sca_set_trigger_high();
+  otbn_execute();
+  otbn_busy_wait_for_done();
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+
+  // Read ERR_STATUS register from OTBN.
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Read DMEM
+  otbn_fi_data_t uj_output;
+  uj_output.res = 0;
+  memset(uj_output.data, 0, sizeof(uj_output.data));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnAppCharBnWsrrResValuesWDR, uj_output.data, sizeof(uj_output.data)));
+  // Read OTBN instruction counter
+  TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
+
+  // Clear OTBN memory.
+  TRY(clear_otbn());
+
+  // Send result & ERR_STATUS to host.
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_otbn_fi_data_t, uj, &uj_output);
+
+  return OK_STATUS();
+}
+
+/**
  * otbn.fi.char.bn_rshi command handler.
  *
  * The goal of this test is to manipulate the BN.RSHI instruction.
@@ -1170,6 +1231,8 @@ status_t handle_otbn_fi(ujson_t *uj) {
       return handle_otbn_fi_char_bn_sel(uj);
     case kOtbnFiSubcommandCharBnRshi:
       return handle_otbn_fi_char_bn_rshi(uj);
+    case kOtbnFiSubcommandCharBnWsrr:
+      return handle_otbn_fi_char_bn_wsrr(uj);
     default:
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();

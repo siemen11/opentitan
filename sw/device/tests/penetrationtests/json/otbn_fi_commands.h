@@ -25,6 +25,7 @@ extern "C" {
     value(_, CharRF) \
     value(_, CharBnSel) \
     value(_, CharBnRshi) \
+    value(_, CharBnWsrr) \
     value(_, LoadIntegrity) \
     value(_, KeySideload)
 UJSON_SERDE_ENUM(OtbnFiSubcommand, otbn_fi_subcommand_t, OTBNFI_SUBCOMMAND);

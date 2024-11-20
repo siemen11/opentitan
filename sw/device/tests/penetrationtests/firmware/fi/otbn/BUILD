@@ -89,3 +89,10 @@ otbn_binary(
         "otbn_char_bn_rshi.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_char_bn_wsrr",
+    srcs = [
+        "otbn_char_bn_wsrr.s",
+    ],
+)
