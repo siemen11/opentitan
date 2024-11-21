@@ -96,3 +96,10 @@ otbn_binary(
         "otbn_char_bn_wsrr.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_pc",
+    srcs = [
+        "otbn_pc.s",
+    ],
+)
