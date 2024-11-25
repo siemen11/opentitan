@@ -6,24 +6,24 @@
 */
 .section .text.start
 
-    /* w0 & w1 are random, w2 contains the value big_num. */
+    /* w2 & w3 are random, w2 contains the value big_num. */
     bn.wsrr w0, URND
-    bn.wsrr w1, URND
-    li      x2, 2
+    bn.wsrr w2, URND
+    li      x2, 3
     la      x1, big_num
     bn.lid  x2, 0x00(x1)
 
     loopi 10, 1
       nop
-    
+
     /* Add with carry: big_num = big_num + big_num. */
-    bn.addc w2, w2, w2
+    bn.addc w3, w3, w3
 
     loopi 10, 1
       nop
-    
+
     /* If carry was set, store random number into w0. If not, store big_num.  */
-    bn.sel  w0, w1, w2, C
+    bn.sel  w0, w2, w3, C
 
     loopi 10, 1
       nop
