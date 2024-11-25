@@ -6,32 +6,31 @@
 */
 .section .text.start
 
-    /* w2 & w3 are random, w2 contains the value big_num. */
+    /* w3 & w10 are random, w10 contains the value big_num. */
     bn.wsrr w0, URND
-    bn.wsrr w2, URND
-    li      x2, 3
+    bn.wsrr w3, URND
+    li      x10, 10
     la      x1, big_num
-    bn.lid  x2, 0x00(x1)
+    bn.lid  x10, 0x00(x1)
+    /* Load big_num_out base address */
+    la      x1, big_num_out
 
     loopi 10, 1
       nop
 
     /* Add with carry: big_num = big_num + big_num. */
-    bn.addc w3, w3, w3
+    bn.addc w10, w10, w10
 
     loopi 10, 1
       nop
 
+    li      x2, 2
+    bn.movr x2, x10
     /* If carry was set, store random number into w0. If not, store big_num.  */
     bn.sel  w0, w2, w3, C
 
-    loopi 10, 1
-      nop
-
     /* Write w0 back to DEM. */
-    li      x2, 0
-    la      x1, big_num_out
-    bn.sid  x2, 0x000(x1)
+    bn.sid  x0, 0x000(x1)
 
     ecall
 
