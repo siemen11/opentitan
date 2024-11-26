@@ -28,7 +28,8 @@ extern "C" {
     value(_, CharBnWsrr) \
     value(_, LoadIntegrity) \
     value(_, KeySideload) \
-    value(_, PC)
+    value(_, PC) \
+    value(_, CharLw)
 UJSON_SERDE_ENUM(OtbnFiSubcommand, otbn_fi_subcommand_t, OTBNFI_SUBCOMMAND);
 
 #define OTBNFI_LOOP_COUNTER_OUTPUT(field, string) \
@@ -52,6 +53,14 @@ UJSON_SERDE_STRUCT(OtbnFiResultOutput, otbn_fi_result_t, OTBNFI_RESULT_OUTPUT);
     field(err_ibx, uint32_t) \
     field(alerts, uint32_t, 3)
 UJSON_SERDE_STRUCT(OtbnFiResultCntOutput, otbn_fi_result_cnt_t, OTBNFI_RESULT_CNT_OUTPUT);
+
+#define OTBNFI_RESULT_ARRAY(field, string) \
+    field(result, uint32_t, 32) \
+    field(insn_cnt, uint32_t) \
+    field(err_otbn, uint32_t) \
+    field(err_ibx, uint32_t) \
+    field(alerts, uint32_t, 3)
+UJSON_SERDE_STRUCT(OtbnFiResultArray, otbn_fi_result_array_t, OTBNFI_RESULT_ARRAY);
 
 #define OTBNFI_KEY_OUTPUT(field, string) \
     field(res, uint32_t) \

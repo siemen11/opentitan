@@ -172,6 +172,69 @@ status_t clear_otbn_load_checksum(void) {
 }
 
 /**
+ * otbn.fi.char.lw command handler.
+ *
+ * The goal of this test is to manipulate LW instructions.
+ *
+ * @param uj The received uJSON data.
+ */
+status_t handle_otbn_fi_char_lw(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Initialize OTBN app, load it, and get interface to OTBN data memory.
+  OTBN_DECLARE_APP_SYMBOLS(otbn_char_lw);
+  OTBN_DECLARE_SYMBOL_ADDR(otbn_char_lw, mem_in);
+  OTBN_DECLARE_SYMBOL_ADDR(otbn_char_lw, mem_out);
+  const otbn_app_t kOtbnAppCharLw = OTBN_APP_T_INIT(otbn_char_lw);
+  static const otbn_addr_t kOtbnMemIn = OTBN_ADDR_T_INIT(otbn_char_lw, mem_in);
+  static const otbn_addr_t kOtbnMemOut = OTBN_ADDR_T_INIT(otbn_char_lw, mem_out);
+
+  // Load app and write reference values into mem_in DMEM.
+  otbn_load_app(kOtbnAppCharLw);
+  TRY(dif_otbn_dmem_write(&otbn, kOtbnMemIn, ref_values, sizeof(ref_values)));
+
+  // FI code target.
+  sca_set_trigger_high();
+  otbn_execute();
+  otbn_busy_wait_for_done();
+  sca_set_trigger_low();
+  
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();  
+
+  // Compare reference values.
+  otbn_fi_result_array_t uj_output;
+  uint32_t res_values[ARRAYSIZE(ref_values)];
+  memset(res_values, 0, sizeof(res_values));
+  TRY(dif_otbn_dmem_read(&otbn, kOtbnMemOut, res_values, sizeof(res_values)));
+  for (size_t it = 0; it < ARRAYSIZE(ref_values); it++) {
+    uj_output.result[it] = res_values[it] ^ ref_values[it];
+  }
+
+  // Read OTBN instruction counter.
+  TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
+
+  // Read ERR_STATUS register from OTBN.
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+
+  // Clear OTBN memory.
+  TRY(clear_otbn());
+
+  // Send back to host.
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_otbn_fi_result_array_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+/**
  * otbn.fi.pc command handler.
  *
  * The goal of this test is to fault the OTBN program counter that is passed from
@@ -1308,6 +1371,8 @@ status_t handle_otbn_fi(ujson_t *uj) {
       return handle_otbn_fi_char_bn_wsrr(uj);
     case kOtbnFiSubcommandPC:
       return handle_otbn_fi_pc(uj);
+    case kOtbnFiSubcommandCharLw:
+      return handle_otbn_fi_char_lw(uj);
     default:
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();

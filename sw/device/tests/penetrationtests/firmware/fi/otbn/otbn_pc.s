@@ -2,7 +2,7 @@
 /* Licensed under the Apache License, Version 2.0, see LICENSE for details. */
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
-    OBTN.CHAR_RF FI Penetration Test
+    OBTN.PC FI Penetration Test
 */
 .section .text.start
   /* Load PC from DMEM. */

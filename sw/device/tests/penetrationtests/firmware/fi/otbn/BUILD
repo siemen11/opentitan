@@ -103,3 +103,10 @@ otbn_binary(
         "otbn_pc.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_char_lw",
+    srcs = [
+        "otbn_char_lw.s",
+    ],
+)
