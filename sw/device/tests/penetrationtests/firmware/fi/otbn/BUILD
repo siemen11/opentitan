@@ -110,3 +110,10 @@ otbn_binary(
         "otbn_char_lw.s",
     ],
 )
+
+otbn_binary(
+    name = "otbn_char_dmem_write",
+    srcs = [
+        "otbn_char_dmem_write.s",
+    ],
+)

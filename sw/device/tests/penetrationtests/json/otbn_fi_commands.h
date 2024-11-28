@@ -20,6 +20,7 @@ extern "C" {
     value(_, CharHardwareDmemOpLoop) \
     value(_, CharMem) \
     value(_, CharDmemAccess) \
+    value(_, CharDmemWrite) \
     value(_, CharBeq) \
     value(_, CharJal) \
     value(_, CharRF) \
