@@ -204,12 +204,13 @@ status_t handle_otbn_fi_char_lw(ujson_t *uj) {
   // Get registered alerts from alert handler.
   reg_alerts = sca_get_triggered_alerts();  
 
-  // Compare reference values.
+  // Compare reference values. 29 values as we are loading into 29 registers.
   otbn_fi_result_array_t uj_output;
-  uint32_t res_values[ARRAYSIZE(ref_values)];
+  uint32_t res_values[29];
   memset(res_values, 0, sizeof(res_values));
+  memset(uj_output.result, 0, sizeof(uj_output.result));
   TRY(dif_otbn_dmem_read(&otbn, kOtbnMemOut, res_values, sizeof(res_values)));
-  for (size_t it = 0; it < ARRAYSIZE(ref_values); it++) {
+  for (size_t it = 0; it < 29; it++) {
     uj_output.result[it] = res_values[it] ^ ref_values[it];
   }
 
