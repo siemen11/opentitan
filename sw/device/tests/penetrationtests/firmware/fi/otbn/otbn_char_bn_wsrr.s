@@ -5,7 +5,7 @@
     OBTN.CHAR_BN_WSRR FI Penetration Test
 */
 .section .text.start
-  /* Load random values into w0...w31. */
+  /* Load random values into w0...w31 (FI target). */
   bn.wsrr w0,  URND
   bn.wsrr w1,  URND
   bn.wsrr w2,  URND
@@ -39,7 +39,7 @@
   bn.wsrr w30, URND
   bn.wsrr w31, URND
 
-  /* 1000 NOPs (FI target). */
+  /* 1000 NOPs*/
   loopi 10, 3
     loopi 100, 1
       nop
