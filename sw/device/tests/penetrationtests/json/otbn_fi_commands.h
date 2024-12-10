@@ -15,6 +15,7 @@ extern "C" {
     value(_, InitKeyMgr) \
     value(_, Init) \
     value(_, CharUnrolledRegOpLoop) \
+    value(_, CharBne) \
     value(_, CharUnrolledDmemOpLoop) \
     value(_, CharHardwareRegOpLoop) \
     value(_, CharHardwareDmemOpLoop) \

@@ -98,6 +98,13 @@ otbn_binary(
 )
 
 otbn_binary(
+    name = "otbn_char_bne",
+    srcs = [
+        "otbn_char_bne.s",
+    ],
+)
+
+otbn_binary(
     name = "otbn_pc",
     srcs = [
         "otbn_pc.s",

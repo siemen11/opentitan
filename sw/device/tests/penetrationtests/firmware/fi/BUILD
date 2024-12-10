@@ -100,6 +100,7 @@ cc_library(
         "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_rf",
         "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_beq",
         "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_bn_sel",
+        "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_bne",
         "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_bn_rshi",
         "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_bn_wsrr",
         "//sw/device/tests/penetrationtests/firmware/fi/otbn:otbn_char_jal",

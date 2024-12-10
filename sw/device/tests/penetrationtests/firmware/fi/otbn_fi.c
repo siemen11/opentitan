@@ -310,6 +310,64 @@ status_t handle_otbn_fi_pc(ujson_t *uj) {
 }
 
 /**
+ * otbn.fi.char.bne command handler.
+ *
+ * The goal of this test is to fault to BNE instruction such that the jump is
+ * not performed. Then, a counter gets incremented. When no effective fault
+ * occurs, the counter is 0.
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ * It needs to be ensured that the compiler does not optimize this code.
+ *
+ * @param uj The received uJSON data.
+ */
+status_t handle_otbn_fi_char_bne(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  sca_registered_alerts_t reg_alerts = sca_get_triggered_alerts();
+
+  // Initialize OTBN app, load it, and get interface to OTBN data memory.
+  OTBN_DECLARE_APP_SYMBOLS(otbn_char_bne);
+  OTBN_DECLARE_SYMBOL_ADDR(otbn_char_bne, res);
+  const otbn_app_t kOtbnAppCharBne = OTBN_APP_T_INIT(otbn_char_bne);
+  static const otbn_addr_t kOtbnAppCharBneRes =
+      OTBN_ADDR_T_INIT(otbn_char_bne, res);
+  otbn_load_app(kOtbnAppCharBne);
+
+  // FI code target.
+  sca_set_trigger_high();
+  otbn_execute();
+  otbn_busy_wait_for_done();
+  sca_set_trigger_low();
+
+  // Get registered alerts from alert handler.
+  reg_alerts = sca_get_triggered_alerts();
+  // Read counter (x1) from OTBN data memory.
+  otbn_fi_result_cnt_t uj_output;
+  uj_output.result = 0;
+  otbn_dmem_read(1, kOtbnAppCharBneRes, &uj_output.result);
+
+  // Read OTBN instruction counter.
+  TRY(dif_otbn_get_insn_cnt(&otbn, &uj_output.insn_cnt));
+
+  // Read ERR_STATUS register from OTBN.
+  dif_otbn_err_bits_t err_otbn;
+  read_otbn_err_bits(&err_otbn);
+
+  // Read ERR_STATUS register from Ibex.
+  dif_rv_core_ibex_error_status_t err_ibx;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &err_ibx));
+  // Clear OTBN memory.
+  TRY(clear_otbn());
+
+  // Send back to host.
+  uj_output.err_otbn = err_otbn;
+  uj_output.err_ibx = err_ibx;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  RESP_OK(ujson_serialize_otbn_fi_result_cnt_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+/**
  * otbn.fi.char.bn_wsrr command handler.
  *
  * The goal of this test is to manipulate the BN.WSRR instruction or the content
@@ -1476,6 +1534,8 @@ status_t handle_otbn_fi(ujson_t *uj) {
       return handle_otbn_fi_pc(uj);
     case kOtbnFiSubcommandCharLw:
       return handle_otbn_fi_char_lw(uj);
+    case kOtbnFiSubcommandCharBne:
+      return handle_otbn_fi_char_bne(uj);
     default:
       LOG_ERROR("Unrecognized OTBN FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
