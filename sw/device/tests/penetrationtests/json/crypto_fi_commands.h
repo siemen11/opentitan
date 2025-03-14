@@ -42,7 +42,8 @@ UJSON_SERDE_STRUCT(CryptoFiKmacMode, crypto_fi_kmac_mode_t, CRYPTOFI_KMAC_MODE);
 #define CRYPTOFI_AES_CIPHERTEXT(field, string) \
     field(ciphertext, uint8_t, 16) \
     field(alerts, uint32_t, 3) \
-    field(err_status, uint32_t)
+    field(err_status, uint32_t) \
+    field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(FiAesCiphertext, crypto_fi_aes_ciphertext_t, CRYPTOFI_AES_CIPHERTEXT);
 
 #define CRYPTOFI_KMAC_STATE(field, string) \
@@ -50,20 +51,23 @@ UJSON_SERDE_STRUCT(FiAesCiphertext, crypto_fi_aes_ciphertext_t, CRYPTOFI_AES_CIP
     field(share1, uint8_t, 200) \
     field(digest, uint8_t, 8) \
     field(alerts, uint32_t, 3) \
-    field(err_status, uint32_t)
+    field(err_status, uint32_t) \
+    field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(FiKmacState, crypto_fi_kmac_state_t, CRYPTOFI_KMAC_STATE);
 
 #define CRYPTOFI_KMAC_DIGEST(field, string) \
     field(digest, uint8_t, 8) \
     field(digest_2nd, uint8_t, 8) \
     field(alerts, uint32_t, 3) \
-    field(err_status, uint32_t)
+    field(err_status, uint32_t) \
+    field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(FiKmacDigest, crypto_fi_kmac_digest_t, CRYPTOFI_KMAC_DIGEST);
 
 #define CRYPTOFI_TEST_RESULT_MULT(field, string) \
     field(result, uint32_t, 3) \
     field(alerts, uint32_t, 3) \
-    field(err_status, uint32_t)
+    field(err_status, uint32_t) \
+    field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(CRYPTOFITestResultMult, crypto_fi_test_result_mult_t, CRYPTOFI_TEST_RESULT_MULT);
 
 #define CRYPTOFI_HMAC_MESSAGE(field, string) \
@@ -73,7 +77,8 @@ UJSON_SERDE_STRUCT(FiHmacMessage, crypto_fi_hmac_message_t, CRYPTOFI_HMAC_MESSAG
 #define CRYPTOFI_HMAC_TAG(field, string) \
     field(tag, uint32_t, CRYPTOFI_HMAC_CMD_MAX_TAG_WORDS) \
     field(alerts, uint32_t, 3) \
-    field(err_status, uint32_t)
+    field(err_status, uint32_t) \
+    field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(FiHmacTag, crypto_fi_hmac_tag_t, CRYPTOFI_HMAC_TAG);
 
 #define CRYPTOFI_HMAC_MODE(field, string) \
