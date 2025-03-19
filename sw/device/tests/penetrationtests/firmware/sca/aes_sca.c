@@ -49,7 +49,7 @@ enum {
    * should be fine to allocate space for 256 segments (2 * 16 Bytes * 256 = 8
    * kBytes).
    */
-  kNumBatchOpsMax = 256,
+  kNumBatchOpsMax = 1024,
   /**
    * Max number of encryptions that can be captured before we rewrite the key to
    * reset the internal block counter. Otherwise, the AES peripheral might

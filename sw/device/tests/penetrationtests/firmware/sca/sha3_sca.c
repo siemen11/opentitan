@@ -49,7 +49,7 @@ enum {
   /**
    * Max number of traces per batch.
    */
-  kNumBatchOpsMax = 128,
+  kNumBatchOpsMax = 256,
 };
 
 /**

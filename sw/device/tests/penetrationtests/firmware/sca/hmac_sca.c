@@ -39,7 +39,7 @@ enum {
   /**
    * Max number of traces per batch.
    */
-  kNumBatchOpsMax = 128,
+  kNumBatchOpsMax = 256,
 };
 
 static status_t trigger_hmac(uint8_t key_buf[], uint8_t mask_buf[],

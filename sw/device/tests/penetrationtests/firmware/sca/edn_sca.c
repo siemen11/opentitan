@@ -31,7 +31,7 @@ enum {
   /**
    * Max number of traces per batch.
    */
-  kNumBatchOpsMax = 128,
+  kNumBatchOpsMax = 256,
 };
 
 static dif_rv_core_ibex_t rv_core_ibex;
