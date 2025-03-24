@@ -30,6 +30,7 @@ cc_library(
         "//sw/device/lib/base:abs_mmio",
         "//sw/device/lib/base:bitfield",
         "//sw/device/lib/base:csr",
+        "//sw/device/lib/base:hardened",
         "//sw/device/lib/base:macros",
         "//sw/device/lib/base:mmio",
         "//sw/device/lib/dif:alert_handler",
@@ -63,7 +64,7 @@ cc_library(
     ] + select({
         "//sw/device:is_english_breakfast": [],
         "//conditions:default": [
-            "//sw/device/lib/crypto/drivers:otbn",
+            "//hw/ip/otbn/data:otbn_c_regs",
             "//sw/device/lib/testing:entropy_testutils",
         ],
     }),
