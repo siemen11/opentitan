@@ -496,7 +496,7 @@ status_t handle_crypto_fi_sha256(ujson_t *uj) {
     pentest_set_trigger_high();
   }
   TRY(dif_hmac_process(&hmac));
-  if (uj_data.msg_trigger) {
+  if (uj_data.process_trigger) {
     pentest_set_trigger_low();
   }
 
