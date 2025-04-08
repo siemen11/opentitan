@@ -160,10 +160,10 @@ status_t handle_otbn_fi_char_beq(ujson_t *uj) {
   otbn_load_app(kOtbnAppCharBeq);
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -224,10 +224,10 @@ status_t handle_otbn_fi_char_bn_rshi(ujson_t *uj) {
                           sizeof(uj_data.big_num)));
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -289,10 +289,10 @@ status_t handle_otbn_fi_char_bn_sel(ujson_t *uj) {
                           sizeof(uj_data.big_num)));
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -345,10 +345,10 @@ status_t handle_otbn_fi_char_bn_wsrr(ujson_t *uj) {
   otbn_load_app(kOtbnAppCharBnWsrr);
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -401,10 +401,10 @@ status_t handle_otbn_fi_char_bne(ujson_t *uj) {
   otbn_load_app(kOtbnAppCharBne);
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -455,10 +455,10 @@ status_t handle_otbn_fi_char_dmem_access(ujson_t *uj) {
   otbn_load_app(kOtbnAppCharDmemAccess);
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -511,7 +511,7 @@ status_t handle_otbn_fi_char_dmem_write(ujson_t *uj) {
   // Init application and load reference values into DMEM.
   otbn_load_app(kOtbnAppCharDmemWrite);
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   asm volatile(NOP30);
   // Unrolled instruction sequence.
   mmio_region_write32(
@@ -643,7 +643,7 @@ status_t handle_otbn_fi_char_dmem_write(ujson_t *uj) {
       (ptrdiff_t)(OTBN_DMEM_REG_OFFSET + kOtbnVarCharDmemWriteMem + 124),
       ref_values[31]);
   asm volatile(NOP10);
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Execute OTBN application.
   otbn_execute();
@@ -707,10 +707,10 @@ status_t handle_otbn_fi_char_hardware_dmem_op_loop(ujson_t *uj) {
   uint32_t loop_counter;
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -760,10 +760,10 @@ status_t handle_otbn_fi_char_hardware_reg_op_loop(ujson_t *uj) {
   uint32_t loop_counter;
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -810,10 +810,10 @@ status_t handle_otbn_fi_char_jal(ujson_t *uj) {
   otbn_load_app(kOtbnAppCharJal);
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -868,10 +868,10 @@ status_t handle_otbn_fi_char_lw(ujson_t *uj) {
   TRY(dif_otbn_dmem_write(&otbn, kOtbnMemIn, ref_values, sizeof(ref_values)));
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -954,9 +954,9 @@ status_t handle_otbn_fi_char_mem(ujson_t *uj) {
   }
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   asm volatile(NOP100);
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -1053,10 +1053,10 @@ status_t handle_otbn_fi_char_register_file(ujson_t *uj) {
   TRY(dif_otbn_dmem_write(&otbn, kOtbnVarCharRFRefValues, ref_values,
                           sizeof(ref_values)));
 
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -1136,10 +1136,10 @@ status_t handle_otbn_fi_char_unrolled_dmem_op_loop(ujson_t *uj) {
   uint32_t loop_counter;
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -1189,10 +1189,10 @@ status_t handle_otbn_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   uint32_t loop_counter;
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -1311,10 +1311,10 @@ status_t handle_otbn_fi_key_sideload(ujson_t *uj) {
   }
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_execute();
   otbn_busy_wait_for_done();
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -1379,9 +1379,9 @@ status_t handle_otbn_fi_load_integrity(ujson_t *uj) {
   }
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   otbn_load_app(kOtbnAppLoadIntegrity);
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -1458,7 +1458,7 @@ status_t handle_otbn_fi_pc(ujson_t *uj) {
   otbn_load_app(kOtbnAppPc);
 
   // FI code target.
-  pentest_set_trigger_high();
+  PENTEST_ASM_TRIGGER_HIGH
   TRY(dif_otbn_dmem_write(&otbn, kOtbnPc, &uj_data.pc, sizeof(uj_data.pc)));
   otbn_execute();
   // Wait until is started before deasserting the trigger.
@@ -1469,7 +1469,7 @@ status_t handle_otbn_fi_pc(ujson_t *uj) {
       is_running = true;
     }
   }
-  pentest_set_trigger_low();
+  PENTEST_ASM_TRIGGER_LOW
   otbn_busy_wait_for_done();
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
