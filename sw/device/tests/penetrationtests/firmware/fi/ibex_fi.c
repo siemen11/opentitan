@@ -12,6 +12,7 @@
 #include "sw/device/lib/dif/dif_otp_ctrl.h"
 #include "sw/device/lib/dif/dif_rv_core_ibex.h"
 #include "sw/device/lib/dif/dif_sram_ctrl.h"
+#include "sw/device/lib/runtime/ibex.h"
 #include "sw/device/lib/runtime/log.h"
 #include "sw/device/lib/testing/flash_ctrl_testutils.h"
 #include "sw/device/lib/testing/otp_ctrl_testutils.h"
@@ -2496,11 +2497,20 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
+  uint64_t start_cycles = 0;
+  uint64_t end_cycles = 0;
+
+  uint32_t res_values[12];
+  // Initialize x5-x7, x12-x18, and x28-x30 with reference values.
+  init_reg_ref_values();
+
+  // Set loop counter (x5) to 0.
   uint32_t loop_counter = 0;
   asm volatile(INITX5);
 
   // FI code target.
   PENTEST_ASM_TRIGGER_HIGH
+  start_cycles = ibex_mcycle_read();
   asm volatile(NOP100);
   asm volatile(ADDI1000);
   asm volatile(ADDI1000);
@@ -2512,8 +2522,36 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   asm volatile(ADDI1000);
   asm volatile(ADDI1000);
   asm volatile(ADDI1000);
+  end_cycles = ibex_mcycle_read();
   PENTEST_ASM_TRIGGER_LOW
   asm volatile("mv %0, x5" : "=r"(loop_counter));
+
+  // Load register values.
+  asm volatile("mv %0, x5" : "=r"(res_values[0]));
+  asm volatile("mv %0, x6" : "=r"(res_values[1]));
+  asm volatile("mv %0, x7" : "=r"(res_values[2]));
+  asm volatile("mv %0, x12" : "=r"(res_values[3]));
+  asm volatile("mv %0, x13" : "=r"(res_values[4]));
+  asm volatile("mv %0, x14" : "=r"(res_values[5]));
+  asm volatile("mv %0, x15" : "=r"(res_values[6]));
+  asm volatile("mv %0, x16" : "=r"(res_values[7]));
+  asm volatile("mv %0, x17" : "=r"(res_values[8]));
+  asm volatile("mv %0, x28" : "=r"(res_values[9]));
+  asm volatile("mv %0, x29" : "=r"(res_values[10]));
+  asm volatile("mv %0, x30" : "=r"(res_values[11]));
+
+  // Check if one or multiple registers values are faulty.
+  ibex_fi_loop_counter_insn_t uj_output;
+  memset(uj_output.addresses, 0, sizeof(uj_output.addresses));
+  memset(uj_output.data, 0, sizeof(uj_output.data));
+  // Ignore the first entry as it contains x5 which we overwrote.
+  for (uint32_t it = 1; it < 12; it++) {
+    if (res_values[it] != ref_values[it]) {
+      uj_output.addresses[it - 1] = 1;  // 1 indicates an error in the register
+                                        // at position it
+      uj_output.data[it - 1] = res_values[it];
+    }
+  }
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -2525,13 +2563,13 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
   TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
 
   // Send loop counter & ERR_STATUS to host.
-  ibex_fi_loop_counter_t uj_output;
   uj_output.loop_counter = loop_counter;
   uj_output.err_status = codes;
+  uj_output.insn_cnt = (uint32_t)(end_cycles - start_cycles);
   memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
          sizeof(sensor_alerts.alerts));
-  RESP_OK(ujson_serialize_ibex_fi_loop_counter_t, uj, &uj_output);
+  RESP_OK(ujson_serialize_ibex_fi_loop_counter_insn_t, uj, &uj_output);
   return OK_STATUS();
 }
 

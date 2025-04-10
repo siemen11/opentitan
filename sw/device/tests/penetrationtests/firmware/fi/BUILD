@@ -44,6 +44,7 @@ cc_library(
         "//sw/device/lib/dif:otp_ctrl",
         "//sw/device/lib/dif:rv_core_ibex",
         "//sw/device/lib/dif:sram_ctrl",
+        "//sw/device/lib/runtime:ibex",
         "//sw/device/lib/runtime:log",
         "//sw/device/lib/testing:flash_ctrl_testutils",
         "//sw/device/lib/testing:otp_ctrl_testutils",
