@@ -1549,9 +1549,9 @@ status_t handle_ibex_fi_char_mem_op_loop(ujson_t *uj) {
   pentest_clear_sensor_recov_alerts();
 
   // FI code target.
+  PENTEST_ASM_TRIGGER_HIGH
   uint32_t loop_counter1 = 0;
   uint32_t loop_counter2 = 10000;
-  PENTEST_ASM_TRIGGER_HIGH
   for (int loop_cnt = 0; loop_cnt < 10000; loop_cnt++) {
     asm volatile(LWADDISW1 : : "r"((uint32_t *)&loop_counter1));
     asm volatile(LWSUBISW1 : : "r"((uint32_t *)&loop_counter2));
@@ -1808,11 +1808,10 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   // Init t0...t6 with 0.
   init_temp_regs(0);
 
-  // Write reference value into SRAM.
-  sram_main_buffer[0] = ref_values[0];
-
   // FI code target.
   PENTEST_ASM_TRIGGER_HIGH
+  // Write reference value into SRAM.
+  sram_main_buffer[0] = ref_values[0];
   // Read from SRAM into temporary registers.
   asm volatile("lw x5, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile("lw x6, (%0)" : : "r"(&sram_main_buffer[0]));
@@ -1995,15 +1994,14 @@ status_t handle_ibex_fi_char_sram_write_read(ujson_t *uj)
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
-  // Initialize SRAM region with inverse reference value.
-  sram_main_buffer[0] = ~ref_values[0];
-
   // Init x5, x6, x6 with the reference values.
   asm volatile("li x5, %0" : : "i"(ref_values[0]));
   asm volatile("li x6, %0" : : "i"(ref_values[1]));
   asm volatile("li x7, %0" : : "i"(ref_values[2]));
 
   PENTEST_ASM_TRIGGER_HIGH
+  // Initialize SRAM region with inverse reference value.
+  sram_main_buffer[0] = ~ref_values[0];
   asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
   asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
   asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
@@ -2156,7 +2154,7 @@ status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
 
   // FI code target.
   // Unrolled for easier fault injection characterization.
-  PENTEST_ASM_TRIGGER_HIGH
+  pentest_set_trigger_high();
   mmio_region_write32(sram_region_main_addr, 0 * (ptrdiff_t)sizeof(uint32_t),
                       ref_values[0]);
   mmio_region_write32(sram_region_main_addr, 1 * (ptrdiff_t)sizeof(uint32_t),
@@ -2285,7 +2283,7 @@ status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
                       ref_values[0]);
   mmio_region_write32(sram_region_main_addr, 63 * (ptrdiff_t)sizeof(uint32_t),
                       ref_values[0]);
-  PENTEST_ASM_TRIGGER_LOW
+  pentest_set_trigger_low();
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
