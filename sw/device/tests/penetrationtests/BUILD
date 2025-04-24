@@ -1,0 +1,57 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load(":pentest.bzl", "pentest_fi")
+
+package(default_visibility = ["//visibility:public"])
+
+IBEX_FI_TESTVECTOR_TARGETS = [
+    "//sw/host/penetrationtests/testvectors/data:fi_ibex",
+]
+
+IBEX_FI_TESTVECTOR_ARGS = " ".join([
+    "--fi-ibex-json=\"$(rootpath {})\"".format(target)
+    for target in IBEX_FI_TESTVECTOR_TARGETS
+])
+
+pentest_fi(
+    name = "fi_ibex",
+    slow_test = True,
+    test_args = IBEX_FI_TESTVECTOR_ARGS,
+    test_harness = "//sw/host/tests/penetrationtests/fi_ibex:harness",
+    test_vectors = IBEX_FI_TESTVECTOR_TARGETS,
+)
+
+# Use the following command to run the entire test suite in a given target:
+# $ export OT_EXEC_ENV=silicon_owner_sival_rom_ext
+# $ bazel test --//signing:token=//signing/tokens:cloud_kms \
+#    --cache_test_results=no --test_output=errors --local_test_jobs=1 \
+#    --build_tag_filters=${OT_EXEC_ENV} \
+#    --test_tag_filters=${OT_EXEC_ENV}  \
+#    --test_output=errors \
+#     //sw/device/tests/crypto/cryptotest:crypto_kat_test_suite
+test_suite(
+    name = "crypto_kat_test_suite",
+    tests = [
+        ":aes_kat",
+        ":cshake_kat",
+        ":drbg_kat",
+        ":ecdh_kat",
+        ":ecdsa_kat",
+        ":hmac_sha256_kat",
+        ":hmac_sha384_kat",
+        ":hmac_sha512_kat",
+        ":kmac_kat",
+        ":sha256_kat",
+        ":sha384_kat",
+        ":sha3_224_kat",
+        ":sha3_256_kat",
+        ":sha3_384_kat",
+        ":sha3_512_kat",
+        ":sha512_kat",
+        ":shake128_kat",
+        ":shake256_kat",
+        ":sphincsplus_kat",
+    ],
+)
