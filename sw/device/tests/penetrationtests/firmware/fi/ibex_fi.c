@@ -178,15 +178,38 @@ static status_t init_ref_otp_data(void) {
   return OK_STATUS();
 }
 
-// Init temporary registers t0...t7 with given value.
-static inline void init_temp_regs(uint32_t value) {
+// Init registers x5-x7, x12-x17, x28-x31 with given value.
+static inline void init_regs(uint32_t value) {
   asm volatile("li x5, %0" : : "i"(value));
   asm volatile("li x6, %0" : : "i"(value));
   asm volatile("li x7, %0" : : "i"(value));
+  asm volatile("li x12, %0" : : "i"(value));
+  asm volatile("li x13, %0" : : "i"(value));
+  asm volatile("li x14, %0" : : "i"(value));
+  asm volatile("li x15, %0" : : "i"(value));
+  asm volatile("li x16, %0" : : "i"(value));
+  asm volatile("li x17, %0" : : "i"(value));
   asm volatile("li x28, %0" : : "i"(value));
   asm volatile("li x29, %0" : : "i"(value));
   asm volatile("li x30, %0" : : "i"(value));
   asm volatile("li x31, %0" : : "i"(value));
+}
+
+// Read back values from registers x5-x7, x12-x17, x28-x31 into buffer.
+static inline void read_regs(uint32_t buffer[]) {
+  asm volatile("mv %0, x5" : "=r"(buffer[0]));
+  asm volatile("mv %0, x6" : "=r"(buffer[1]));
+  asm volatile("mv %0, x7" : "=r"(buffer[2]));
+  asm volatile("mv %0, x12" : "=r"(buffer[3]));
+  asm volatile("mv %0, x13" : "=r"(buffer[4]));
+  asm volatile("mv %0, x14" : "=r"(buffer[5]));
+  asm volatile("mv %0, x15" : "=r"(buffer[6]));
+  asm volatile("mv %0, x16" : "=r"(buffer[7]));
+  asm volatile("mv %0, x17" : "=r"(buffer[8]));
+  asm volatile("mv %0, x28" : "=r"(buffer[9]));
+  asm volatile("mv %0, x29" : "=r"(buffer[10]));
+  asm volatile("mv %0, x30" : "=r"(buffer[11]));
+  asm volatile("mv %0, x31" : "=r"(buffer[12]));
 }
 
 static inline void init_reg_ref_values(void) {
@@ -202,6 +225,7 @@ static inline void init_reg_ref_values(void) {
   asm volatile("li x28, %0" : : "i"(ref_values[9]));
   asm volatile("li x29, %0" : : "i"(ref_values[10]));
   asm volatile("li x30, %0" : : "i"(ref_values[11]));
+  asm volatile("li x31, %0" : : "i"(ref_values[12]));
 }
 
 static inline void get_res_values(uint32_t *res_values) {
@@ -368,17 +392,6 @@ static status_t read_otp_partitions(ujson_t *uj) {
   RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
 
   return OK_STATUS();
-}
-
-// Read back values fromo temporary registers t0...t7 into buffer.
-static inline void read_temp_regs(uint32_t buffer[]) {
-  asm volatile("mv %0, x5" : "=r"(buffer[0]));
-  asm volatile("mv %0, x6" : "=r"(buffer[1]));
-  asm volatile("mv %0, x7" : "=r"(buffer[2]));
-  asm volatile("mv %0, x28" : "=r"(buffer[3]));
-  asm volatile("mv %0, x29" : "=r"(buffer[4]));
-  asm volatile("mv %0, x30" : "=r"(buffer[5]));
-  asm volatile("mv %0, x31" : "=r"(buffer[6]));
 }
 
 // Make sure that this function does not get optimized by the compiler.
@@ -1027,14 +1040,20 @@ status_t handle_ibex_fi_char_csr_read(ujson_t *uj) {
   // Write reference value into CSR.
   CSR_WRITE(CSR_REG_MSCRATCH, ref_values[0]);
 
-  // Init t0...t6 with 0.
-  init_temp_regs(0);
+  // Initialize x5-x7, x12-x17, and x28-x30 with 0.
+  init_regs(0);
 
   // FI code target.
   PENTEST_ASM_TRIGGER_HIGH
   asm volatile("csrr x5,mscratch");
   asm volatile("csrr x6,mscratch");
   asm volatile("csrr x7,mscratch");
+  asm volatile("csrr x12,mscratch");
+  asm volatile("csrr x13,mscratch");
+  asm volatile("csrr x14,mscratch");
+  asm volatile("csrr x15,mscratch");
+  asm volatile("csrr x16,mscratch");
+  asm volatile("csrr x17,mscratch");
   asm volatile("csrr x28,mscratch");
   asm volatile("csrr x29,mscratch");
   asm volatile("csrr x30,mscratch");
@@ -1043,8 +1062,8 @@ status_t handle_ibex_fi_char_csr_read(ujson_t *uj) {
 
   // Load register values.
   // Result buffer.
-  uint32_t res_values[7];
-  read_temp_regs(res_values);
+  uint32_t res_values[13];
+  read_regs(res_values);
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -1053,7 +1072,7 @@ status_t handle_ibex_fi_char_csr_read(ujson_t *uj) {
 
   // Compare against reference values.
   uint32_t res = 0;
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 13; i++) {
     if (res_values[i] != ref_values[0]) {
       res |= 1;
     }
@@ -1191,14 +1210,23 @@ status_t handle_ibex_fi_char_flash_read(ujson_t *uj) __attribute__((optnone)) {
     flash_data_valid = true;
   }
 
-  // Init t0...t6 with 0.
-  init_temp_regs(0);
+  // Result buffer.
+  uint32_t res_values[13];
+
+  // Initialize x5-x7, x12-x17, and x28-x30 with 0.
+  init_regs(0);
 
   // FI code target.
   PENTEST_ASM_TRIGGER_HIGH
   asm volatile("lw x5, (%0)" : : "r"((flash_bank_1.base)));
   asm volatile("lw x6, (%0)" : : "r"((flash_bank_1.base)));
   asm volatile("lw x7, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x12, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x13, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x14, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x15, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x16, (%0)" : : "r"((flash_bank_1.base)));
+  asm volatile("lw x17, (%0)" : : "r"((flash_bank_1.base)));
   asm volatile("lw x28, (%0)" : : "r"((flash_bank_1.base)));
   asm volatile("lw x29, (%0)" : : "r"((flash_bank_1.base)));
   asm volatile("lw x30, (%0)" : : "r"((flash_bank_1.base)));
@@ -1206,9 +1234,7 @@ status_t handle_ibex_fi_char_flash_read(ujson_t *uj) __attribute__((optnone)) {
   PENTEST_ASM_TRIGGER_LOW
 
   // Load register values.
-  // Result buffer.
-  uint32_t res_values[7];
-  read_temp_regs(res_values);
+  read_regs(res_values);
 
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
@@ -1220,7 +1246,7 @@ status_t handle_ibex_fi_char_flash_read(ujson_t *uj) __attribute__((optnone)) {
   memset(uj_output.addresses, 0, sizeof(uj_output.addresses));
   memset(uj_output.data, 0, sizeof(uj_output.data));
 
-  for (uint32_t flash_pos = 0; flash_pos < 7; flash_pos++) {
+  for (uint32_t flash_pos = 0; flash_pos < 13; flash_pos++) {
     if (res_values[flash_pos] != ref_values[0]) {
       uj_output.addresses[flash_pos] = flash_pos;
       uj_output.data[flash_pos] = res_values[flash_pos];
@@ -1760,7 +1786,7 @@ status_t handle_ibex_fi_char_register_file_read(ujson_t *uj) {
   ibex_fi_faulty_reg_data_t uj_output;
   memset(uj_output.data, 0, sizeof(uj_output.data));
   for (uint32_t it = 0; it < 12; it++) {
-      uj_output.data[it] = res_values[it];
+    uj_output.data[it] = res_values[it];
   }
 
   // Read ERR_STATUS register.
@@ -1783,7 +1809,6 @@ status_t handle_ibex_fi_char_reg_op_loop(ujson_t *uj) {
   pentest_clear_sensor_recov_alerts();
 
   // Initialize x5-x7, x12-x18, and x28-x30 with reference values.
-  
 
   uint32_t res_values[32];
 
@@ -1838,8 +1863,8 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
-  // Init t0...t6 with 0.
-  init_temp_regs(0);
+  // Initialize x5-x7, x12-x17, and x28-x30 with 0.
+  init_regs(0);
 
   uint32_t res_values[32];
 
@@ -1851,6 +1876,12 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   asm volatile("lw x5, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile("lw x6, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile("lw x7, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x12, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x13, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x14, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x15, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x16, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x17, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile("lw x28, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile("lw x29, (%0)" : : "r"(&sram_main_buffer[0]));
   asm volatile("lw x30, (%0)" : : "r"(&sram_main_buffer[0]));
@@ -2475,11 +2506,9 @@ status_t handle_ibex_fi_char_unrolled_mem_op_loop(ujson_t *uj) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
- 
-
   uint32_t res_values[32];
 
-   // Initialize x5-x7, x12-x18, and x28-x30 with reference values.
+  // Initialize x5-x7, x12-x18, and x28-x30 with reference values.
   init_reg_ref_values();
 
   // FI code target.
@@ -2528,7 +2557,6 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
 
   // Initialize x5-x7, x12-x18, and x28-x30 with reference values.
   init_reg_ref_values();
-
 
   // Set loop counter (x5) to 0.
   uint32_t loop_counter = 0;
