@@ -44,6 +44,8 @@ static dif_rv_core_ibex_t rv_core_ibex;
 // Interface to OTP.
 static dif_otp_ctrl_t otp;
 
+// Indicates whether flash already was initialized for the test or not.
+static bool flash_init;
 // Indicates whether flash content is valid or not.
 static bool flash_data_valid;
 // Indicates whether ret SRAM already was initialized for the test or not.
@@ -1164,6 +1166,33 @@ status_t handle_ibex_fi_char_flash_read(ujson_t *uj) __attribute__((optnone)) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
+  if (!flash_init) {
+    // Configure the data flash.
+    // Flash configuration.
+    dif_flash_ctrl_region_properties_t region_properties = {
+        .rd_en = kMultiBitBool4True,
+        .prog_en = kMultiBitBool4True,
+        .erase_en = kMultiBitBool4True,
+        .scramble_en = kMultiBitBool4True,
+        .ecc_en = kMultiBitBool4True,
+        .high_endurance_en = kMultiBitBool4False};
+
+    dif_flash_ctrl_data_region_properties_t data_region = {
+        .base = FLASH_PAGES_PER_BANK,
+        .size = 0x1,
+        .properties = region_properties};
+
+    dif_result_t res_prop =
+        dif_flash_ctrl_set_data_region_properties(&flash, 2, data_region);
+
+    dif_result_t res_en =
+        dif_flash_ctrl_set_data_region_enablement(&flash, 2, kDifToggleEnabled);
+    if (res_prop == kDifLocked || res_en == kDifLocked) {
+      LOG_INFO("Flash region locked.");
+    }
+    flash_init = true;
+  }
+
   ptrdiff_t flash_bank_1_addr =
       (ptrdiff_t)flash_info.data_pages * (ptrdiff_t)flash_info.bytes_per_page;
   mmio_region_t flash_bank_1 = mmio_region_from_addr(
@@ -1249,6 +1278,33 @@ status_t handle_ibex_fi_char_flash_write(ujson_t *uj) {
   pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
+
+  if (!flash_init) {
+    // Configure the data flash.
+    // Flash configuration.
+    dif_flash_ctrl_region_properties_t region_properties = {
+        .rd_en = kMultiBitBool4True,
+        .prog_en = kMultiBitBool4True,
+        .erase_en = kMultiBitBool4True,
+        .scramble_en = kMultiBitBool4True,
+        .ecc_en = kMultiBitBool4True,
+        .high_endurance_en = kMultiBitBool4False};
+
+    dif_flash_ctrl_data_region_properties_t data_region = {
+        .base = FLASH_PAGES_PER_BANK,
+        .size = 0x1,
+        .properties = region_properties};
+
+    dif_result_t res_prop =
+        dif_flash_ctrl_set_data_region_properties(&flash, 2, data_region);
+
+    dif_result_t res_en =
+        dif_flash_ctrl_set_data_region_enablement(&flash, 2, kDifToggleEnabled);
+    if (res_prop == kDifLocked || res_en == kDifLocked) {
+      LOG_INFO("Flash region locked.");
+    }
+    flash_init = true;
+  }
 
   ptrdiff_t flash_bank_1_addr =
       (ptrdiff_t)flash_info.data_pages * (ptrdiff_t)flash_info.bytes_per_page;
@@ -2662,6 +2718,7 @@ status_t handle_ibex_fi_init(ujson_t *uj) {
   RESP_OK(ujson_serialize_penetrationtest_device_info_t, uj, &uj_output);
 
   // Initialize flash for the flash test and write reference values into page.
+  flash_init = false;
   flash_data_valid = false;
   // Initialize retention SRAM.
   sram_ret_init = false;
