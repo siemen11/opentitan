@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-use pentest_commands::fi_ibex_commands::IbexFiSubcommand;
+use pentest_commands::fi_crypto_commands::CryptoFiSubcommand;
 
 use pentest_commands::commands::PenetrationtestCommand;
 
@@ -30,16 +30,17 @@ struct Opts {
     timeout: Duration,
 
     #[arg(long, num_args = 1..)]
-    fi_ibex_json: Vec<String>,
+    fi_crypto_json: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct FiIbexTestCase {
+struct FiCryptoTestCase {
     test_case_id: usize,
     command: String,
-    // Input only needed for the "Init" subcommand.
     #[serde(default)]
     input: String,
+    #[serde(default)]
+    mode: String,
     expected_output: String,
 }
 
@@ -54,8 +55,8 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     return map;
 }
 
-fn run_fi_ibex_testcase(
-    test_case: &FiIbexTestCase,
+fn run_fi_crypto_testcase(
+    test_case: &FiCryptoTestCase,
     opts: &Opts,
     uart: &dyn Uart,
     fail_counter: &mut u32,
@@ -65,47 +66,18 @@ fn run_fi_ibex_testcase(
         test_case.test_case_id,
         test_case.command
     );
-    PenetrationtestCommand::IbexFi.send(uart)?;
+    PenetrationtestCommand::CryptoFi.send(uart)?;
 
     // Send test subcommand.
     match test_case.command.as_str() {
-        "AddressTranslation" => IbexFiSubcommand::AddressTranslation,
-        "AddressTranslationCfg" => IbexFiSubcommand::AddressTranslationCfg,
-        "CharCondBranchBeq" => IbexFiSubcommand::CharCondBranchBeq,
-        "CharCondBranchBge" => IbexFiSubcommand::CharCondBranchBge,
-        "CharCondBranchBgeu" => IbexFiSubcommand::CharCondBranchBgeu,
-        "CharCondBranchBlt" => IbexFiSubcommand::CharCondBranchBlt,
-        "CharCondBranchBltu" => IbexFiSubcommand::CharCondBranchBltu,
-        "CharCondBranchBne" => IbexFiSubcommand::CharCondBranchBne,
-        "CharCsrRead" => IbexFiSubcommand::CharCsrRead,
-        "CharCsrWrite" => IbexFiSubcommand::CharCsrWrite,
-        "CharFlashRead" => IbexFiSubcommand::CharFlashRead,
-        "CharFlashWrite" => IbexFiSubcommand::CharFlashWrite,
-        "CharHardenedCheckComplementBranch" => IbexFiSubcommand::CharHardenedCheckComplementBranch,
-        "CharHardenedCheckUnimp" => IbexFiSubcommand::CharHardenedCheckUnimp,
-        "CharHardenedCheck2Unimps" => IbexFiSubcommand::CharHardenedCheck2Unimps,
-        "CharHardenedCheck3Unimps" => IbexFiSubcommand::CharHardenedCheck3Unimps,
-        "CharHardenedCheck4Unimps" => IbexFiSubcommand::CharHardenedCheck4Unimps,
-        "CharHardenedCheck5Unimps" => IbexFiSubcommand::CharHardenedCheck5Unimps,
-        "CharMemOpLoop" => IbexFiSubcommand::CharMemOpLoop,
-        "CharRegisterFile" => IbexFiSubcommand::CharRegisterFile,
-        "CharRegisterFileRead" => IbexFiSubcommand::CharRegisterFileRead,
-        "CharRegOpLoop" => IbexFiSubcommand::CharRegOpLoop,
-        "CharSramRead" => IbexFiSubcommand::CharSramRead,
-        "CharSramStatic" => IbexFiSubcommand::CharSramStatic,
-        "CharSramWrite" => IbexFiSubcommand::CharSramWrite,
-        "CharSramWriteRead" => IbexFiSubcommand::CharSramWriteRead,
-        "CharSramWriteStaticUnrolled" => IbexFiSubcommand::CharSramWriteStaticUnrolled,
-        "CharUncondBranch" => IbexFiSubcommand::CharUncondBranch,
-        "CharUncondBranchNop" => IbexFiSubcommand::CharUncondBranchNop,
-        "CharUnrolledMemOpLoop" => IbexFiSubcommand::CharUnrolledMemOpLoop,
-        "CharUnrolledRegOpLoop" => IbexFiSubcommand::CharUnrolledRegOpLoop,
-        "CharUnrolledRegOpLoopChain" => IbexFiSubcommand::CharUnrolledRegOpLoopChain,
-        "Init" => IbexFiSubcommand::Init,
-        "OtpDataRead" => IbexFiSubcommand::OtpDataRead,
-        "OtpReadLock" => IbexFiSubcommand::OtpReadLock,
-        "OtpWriteLock" => IbexFiSubcommand::OtpWriteLock,
-        _ => panic!("Unsupported Ibex FI subcommand"),
+        "Aes" => CryptoFiSubcommand::Aes,
+        "Init" => CryptoFiSubcommand::Init,
+        "Kmac" => CryptoFiSubcommand::Kmac,
+        "KmacState" => CryptoFiSubcommand::KmacState,
+        "Sha256" => CryptoFiSubcommand::Sha256,
+        "ShadowRegAccess" => CryptoFiSubcommand::ShadowRegAccess,
+        "ShadowRegRead" => CryptoFiSubcommand::ShadowRegRead,
+        _ => panic!("Unsupported Crypto FI subcommand"),
     }
     .send(uart)?;
 
@@ -113,6 +85,12 @@ fn run_fi_ibex_testcase(
     if test_case.input != "" {
         let input: serde_json::Value = serde_json::from_str(test_case.input.as_str()).unwrap();
         input.send(uart)?;
+    }
+
+    // Check if we need to send a mode.
+    if test_case.mode != "" {
+        let mode: serde_json::Value = serde_json::from_str(test_case.mode.as_str()).unwrap();
+        mode.send(uart)?;
     }
 
     // Get test output & filter.
@@ -139,22 +117,22 @@ fn run_fi_ibex_testcase(
     Ok(())
 }
 
-fn test_fi_ibex(opts: &Opts, transport: &TransportWrapper) -> Result<()> {
+fn test_fi_crypto(opts: &Opts, transport: &TransportWrapper) -> Result<()> {
     let uart = transport.uart("console")?;
     uart.set_flow_control(true)?;
     let _ = UartConsole::wait_for(&*uart, r"Running [^\r\n]*", opts.timeout)?;
 
     let mut test_counter = 0u32;
     let mut fail_counter = 0u32;
-    let test_vector_files = &opts.fi_ibex_json;
+    let test_vector_files = &opts.fi_crypto_json;
     // File wird noch nicht richtig geparsed.
     for file in test_vector_files {
         let raw_json = fs::read_to_string(file)?;
-        let fi_ibex_tests: Vec<FiIbexTestCase> = serde_json::from_str(&raw_json)?;
-        for fi_ibex_test in &fi_ibex_tests {
+        let fi_crypto_tests: Vec<FiCryptoTestCase> = serde_json::from_str(&raw_json)?;
+        for fi_crypto_test in &fi_crypto_tests {
             test_counter += 1;
             log::info!("Test counter: {}", test_counter);
-            run_fi_ibex_testcase(fi_ibex_test, opts, &*uart, &mut fail_counter)?;
+            run_fi_crypto_testcase(fi_crypto_test, opts, &*uart, &mut fail_counter)?;
         }
     }
     assert_eq!(
@@ -170,6 +148,6 @@ fn main() -> Result<()> {
     opts.init.init_logging();
 
     let transport = opts.init.init_target()?;
-    execute_test!(test_fi_ibex, &opts, &transport);
+    execute_test!(test_fi_crypto, &opts, &transport);
     Ok(())
 }
