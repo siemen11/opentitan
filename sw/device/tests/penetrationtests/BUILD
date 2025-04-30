@@ -91,6 +91,23 @@ pentest_fi(
     test_vectors = RNG_FI_TESTVECTOR_TARGETS,
 )
 
+ROM_FI_TESTVECTOR_TARGETS = [
+    "//sw/host/penetrationtests/testvectors/data:fi_rom",
+]
+
+ROM_FI_TESTVECTOR_ARGS = " ".join([
+    "--fi-rom-json=\"$(rootpath {})\"".format(target)
+    for target in ROM_FI_TESTVECTOR_TARGETS
+])
+
+pentest_fi(
+    name = "fi_rom",
+    slow_test = True,
+    test_args = ROM_FI_TESTVECTOR_ARGS,
+    test_harness = "//sw/host/tests/penetrationtests/fi_rom:harness",
+    test_vectors = ROM_FI_TESTVECTOR_TARGETS,
+)
+
 OTBN_FI_TESTVECTOR_TARGETS = [
     "//sw/host/penetrationtests/testvectors/data:fi_otbn",
 ]
@@ -106,37 +123,4 @@ pentest_fi_otbn(
     test_args = OTBN_FI_TESTVECTOR_ARGS,
     test_harness = "//sw/host/tests/penetrationtests/fi_otbn:harness",
     test_vectors = OTBN_FI_TESTVECTOR_TARGETS,
-)
-
-# Use the following command to run the entire test suite in a given target:
-# $ export OT_EXEC_ENV=silicon_owner_sival_rom_ext
-# $ bazel test --//signing:token=//signing/tokens:cloud_kms \
-#    --cache_test_results=no --test_output=errors --local_test_jobs=1 \
-#    --build_tag_filters=${OT_EXEC_ENV} \
-#    --test_tag_filters=${OT_EXEC_ENV}  \
-#    --test_output=errors \
-#     //sw/device/tests/crypto/cryptotest:crypto_kat_test_suite
-test_suite(
-    name = "crypto_kat_test_suite",
-    tests = [
-        ":aes_kat",
-        ":cshake_kat",
-        ":drbg_kat",
-        ":ecdh_kat",
-        ":ecdsa_kat",
-        ":hmac_sha256_kat",
-        ":hmac_sha384_kat",
-        ":hmac_sha512_kat",
-        ":kmac_kat",
-        ":sha256_kat",
-        ":sha384_kat",
-        ":sha3_224_kat",
-        ":sha3_256_kat",
-        ":sha3_384_kat",
-        ":sha3_512_kat",
-        ":sha512_kat",
-        ":shake128_kat",
-        ":shake256_kat",
-        ":sphincsplus_kat",
-    ],
 )
