@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-use pentest_commands::sca_kmac_commands::KmacScaSubcommand;
+use pentest_commands::sca_sha3_commands::Sha3ScaSubcommand;
 
 use pentest_commands::commands::PenetrationtestCommand;
 
@@ -30,17 +30,19 @@ struct Opts {
     timeout: Duration,
 
     #[arg(long, num_args = 1..)]
-    sca_kmac_json: Vec<String>,
+    sca_sha3_json: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct ScaKmacTestCase {
+struct ScaSha3TestCase {
     test_case_id: usize,
     command: String,
     #[serde(default)]
+    mode: String,
+    #[serde(default)]
     input: String,
     #[serde(default)]
-    mode: String,
+    status: String,
     #[serde(default)]
     expected_output: String,
 }
@@ -49,11 +51,13 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     let mut map: serde_json::Map<String, serde_json::Value> = response.as_object().unwrap().clone();
     // Device ID is different for each device.
     map.remove("device_id");
+    // Ignore rnd_data as it contains random data.
+    map.remove("rnd_data");
     return map;
 }
 
-fn run_sca_kmac_testcase(
-    test_case: &ScaKmacTestCase,
+fn run_sca_sha3_testcase(
+    test_case: &ScaSha3TestCase,
     opts: &Opts,
     uart: &dyn Uart,
     fail_counter: &mut u32,
@@ -63,29 +67,53 @@ fn run_sca_kmac_testcase(
         test_case.test_case_id,
         test_case.command
     );
-    PenetrationtestCommand::KmacSca.send(uart)?;
+    PenetrationtestCommand::Sha3Sca.send(uart)?;
 
     // Send test subcommand.
     match test_case.command.as_str() {
-        "Init" => KmacScaSubcommand::Init,
-        "SetKey" => KmacScaSubcommand::SetKey,
-        "SingleAbsorb" => KmacScaSubcommand::SingleAbsorb,
-        "Batch" => KmacScaSubcommand::Batch,
-        "FixedKeySet" => KmacScaSubcommand::FixedKeySet,
-        "SeedLfsr" => KmacScaSubcommand::SeedLfsr,
-        _ => panic!("Unsupported KMAC SCA subcommand"),
+        "Init" => Sha3ScaSubcommand::Init,
+        "SingleAbsorb" => Sha3ScaSubcommand::SingleAbsorb,
+        "Batch" => Sha3ScaSubcommand::Batch,
+        "FixedMessageSet" => Sha3ScaSubcommand::FixedMessageSet,
+        "SeedLfsr" => Sha3ScaSubcommand::SeedLfsr,
+        "DisableMasking" => Sha3ScaSubcommand::DisableMasking,
+        _ => panic!("Unsupported SHA3 SCA subcommand"),
     }
     .send(uart)?;
 
-    // Check if we need to send an input.
+    // Check if we need to send a mode.
     if test_case.mode != "" {
         let mode: serde_json::Value = serde_json::from_str(test_case.mode.as_str()).unwrap();
         mode.send(uart)?;
     }
 
+    // Check if we need to send an input.
     if test_case.input != "" {
         let input: serde_json::Value = serde_json::from_str(test_case.input.as_str()).unwrap();
         input.send(uart)?;
+    }
+
+    if test_case.status != "" {
+        // Get test output & filter.
+        let output = serde_json::Value::recv(uart, opts.timeout, false)?;
+        let output_received = filter_response(output.clone());
+
+        // Filter expected output.
+        let exp_output: serde_json::Value =
+            serde_json::from_str(test_case.status.as_str()).unwrap();
+        let output_expected = filter_response(exp_output.clone());
+
+        // Check received with expected output.
+        if output_expected != output_received {
+            log::info!(
+                "FAILED {} test #{}: expected = '{}', actual = '{}'",
+                test_case.command,
+                test_case.test_case_id,
+                exp_output,
+                output
+            );
+            *fail_counter += 1;
+        }
     }
 
     if test_case.expected_output != "" {
@@ -114,21 +142,21 @@ fn run_sca_kmac_testcase(
     Ok(())
 }
 
-fn test_sca_kmac(opts: &Opts, transport: &TransportWrapper) -> Result<()> {
+fn test_sca_sha3(opts: &Opts, transport: &TransportWrapper) -> Result<()> {
     let uart = transport.uart("console")?;
     uart.set_flow_control(true)?;
     let _ = UartConsole::wait_for(&*uart, r"Running [^\r\n]*", opts.timeout)?;
 
     let mut test_counter = 0u32;
     let mut fail_counter = 0u32;
-    let test_vector_files = &opts.sca_kmac_json;
+    let test_vector_files = &opts.sca_sha3_json;
     for file in test_vector_files {
         let raw_json = fs::read_to_string(file)?;
-        let sca_kmac_tests: Vec<ScaKmacTestCase> = serde_json::from_str(&raw_json)?;
-        for sca_kmac_test in &sca_kmac_tests {
+        let sca_sha3_tests: Vec<ScaSha3TestCase> = serde_json::from_str(&raw_json)?;
+        for sca_sha3_test in &sca_sha3_tests {
             test_counter += 1;
             log::info!("Test counter: {}", test_counter);
-            run_sca_kmac_testcase(sca_kmac_test, opts, &*uart, &mut fail_counter)?;
+            run_sca_sha3_testcase(sca_sha3_test, opts, &*uart, &mut fail_counter)?;
         }
     }
     assert_eq!(
@@ -144,6 +172,6 @@ fn main() -> Result<()> {
     opts.init.init_logging();
 
     let transport = opts.init.init_target()?;
-    execute_test!(test_sca_kmac, &opts, &transport);
+    execute_test!(test_sca_sha3, &opts, &transport);
     Ok(())
 }
