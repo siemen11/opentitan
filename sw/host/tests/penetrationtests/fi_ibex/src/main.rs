@@ -51,10 +51,6 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     map.remove("err_status");
     // Device ID is different for each device.
     map.remove("device_id");
-    // data, regs, and registers contain the contents of the registers which is different for each device or compilation.
-    map.remove("data");
-    map.remove("registers");
-    map.remove("regs");
     return map;
 }
 
