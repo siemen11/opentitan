@@ -1825,10 +1825,10 @@ status_t handle_ibex_fi_char_reg_op_loop(ujson_t *uj) {
   // FI code target.
   uint32_t loop_counter1 = 0;
   uint32_t loop_counter2 = 10000;
+  
+  init_reg_ref_values();
   asm volatile(INITX5);
   asm volatile(INITX6);
-  asm volatile(NOP100);
-  init_reg_ref_values();
 
   PENTEST_ASM_TRIGGER_HIGH
   for (int loop_cnt = 0; loop_cnt < 10000; loop_cnt++) {

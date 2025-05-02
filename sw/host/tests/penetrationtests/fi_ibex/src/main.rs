@@ -54,6 +54,10 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     // Filter the clock jitter enable/disable field as on A2 it is always enabled
     // when writing any value into the config register.
     map.remove("clock_jitter_en");
+    // data, regs, and registers contain the contents of the registers which is different for each device or compilation.
+    map.remove("data");
+    map.remove("registers");
+    map.remove("regs");
     return map;
 }
 
