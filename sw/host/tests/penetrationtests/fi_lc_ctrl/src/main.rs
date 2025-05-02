@@ -51,6 +51,8 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     map.remove("err_status");
     // Device ID is different for each device.
     map.remove("device_id");
+    // Number of attempts for the lc_ctrl is different for each device.
+    map.remove("counter");
     return map;
 }
 

@@ -52,6 +52,9 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     map.remove("err_status");
     // Device ID is different for each device.
     map.remove("device_id");
+    // Shares use randomness which will differ
+    map.remove("share0");
+    map.remove("share1");
     return map;
 }
 
