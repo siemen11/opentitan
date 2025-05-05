@@ -51,6 +51,9 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     map.remove("err_status");
     // Device ID is different for each device.
     map.remove("device_id");
+    // Filter the clock jitter enable/disable field as on A2 it is always enabled
+    // when writing any value into the config register.
+    map.remove("clock_jitter_en");
     return map;
 }
 

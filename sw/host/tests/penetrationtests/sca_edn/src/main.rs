@@ -46,6 +46,9 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     let mut map: serde_json::Map<String, serde_json::Value> = response.as_object().unwrap().clone();
     // Device ID is different for each device.
     map.remove("device_id");
+    // Filter the clock jitter enable/disable field as on A2 it is always enabled
+    // when writing any value into the config register.
+    map.remove("clock_jitter_en");
     // Ignore rnd_data as it contains random data.
     map.remove("rnd_data");
     return map;
