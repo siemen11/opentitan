@@ -2614,6 +2614,10 @@ status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj) {
   asm volatile("jal ra, not_increment_counter");
   asm volatile("jal ra, not_increment_counter");
   PENTEST_ASM_TRIGGER_LOW
+
+  // Return address will differ for each compilation, so we write it with a
+  // reference value to not disturb the gold response
+  asm volatile("ADDI ra, x0, 0");
   get_res_values(res_values);
 
   write_all_regs(registers);
