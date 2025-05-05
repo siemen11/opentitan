@@ -61,16 +61,16 @@ UJSON_SERDE_STRUCT(IbexFiTestResult, ibex_fi_test_result_t, IBEXFI_TEST_RESULT);
     field(err_status, uint32_t) \
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2) \
-    field(data, uint32_t, 64) \
-    field(regs, uint32_t, 32)
+    field(memory, uint32_t, 64) \
+    field(registers, uint32_t, 32)
 UJSON_SERDE_STRUCT(IbexFiTestResultSram, ibex_fi_test_result_sram_t, IBEXFI_TEST_RESULT_SRAM);
 
 #define IBEXFI_TEST_RESULT_SRAM_32(field, string) \
     field(err_status, uint32_t) \
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2) \
-    field(data, uint32_t, 32) \
-    field(regs, uint32_t, 32)
+    field(memory, uint32_t, 32) \
+    field(registers, uint32_t, 32)
 UJSON_SERDE_STRUCT(IbexFiTestResultSram32, ibex_fi_test_result_sram_32_t, IBEXFI_TEST_RESULT_SRAM_32);
 
 #define IBEXFI_TEST_RESULT_REGISTERS(field, string) \
@@ -101,7 +101,7 @@ UJSON_SERDE_STRUCT(IbexFiLoopCounterOutput, ibex_fi_loop_counter_t, IBEXFI_LOOP_
     field(err_status, uint32_t) \
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2) \
-    field(data, uint32_t, 32)
+    field(registers, uint32_t, 32)
 UJSON_SERDE_STRUCT(IbexFiLoopCounterRegOutput, ibex_fi_loop_counter_reg_t, IBEXFI_LOOP_COUNTER_REG_OUTPUT);
 
 #define IBEXFI_LOOP_COUNTER_MIRRORED_OUTPUT(field, string) \
@@ -110,7 +110,7 @@ UJSON_SERDE_STRUCT(IbexFiLoopCounterRegOutput, ibex_fi_loop_counter_reg_t, IBEXF
     field(err_status, uint32_t) \
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2) \
-    field(data, uint32_t, 32)
+    field(registers, uint32_t, 32)
 UJSON_SERDE_STRUCT(IbexFiLoopCounterMirroredOutput, ibex_fi_loop_counter_mirrored_t, IBEXFI_LOOP_COUNTER_MIRRORED_OUTPUT);
 
 #define IBEXFI_FAULTY_ADDRESSES_DATA(field, string) \
@@ -123,7 +123,7 @@ UJSON_SERDE_STRUCT(IbexFiFaultyAddressesData, ibex_fi_faulty_addresses_data_t, I
 
 #define IBEXFI_FAULTY_REG_DATA(field, string) \
     field(err_status, uint32_t) \
-    field(data, uint32_t, 32) \
+    field(registers, uint32_t, 32) \
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(IbexFiFaultyRegData, ibex_fi_faulty_reg_data_t, IBEXFI_FAULTY_REG_DATA);

@@ -324,7 +324,6 @@ static inline void read_all_regs(uint32_t buffer[]) {
   asm volatile("sw x31, 120(%0)" : : "r"(&buffer[0]));
 }
 
-
 // Write back values from buffer into the registers x1...x31.
 static inline void write_all_regs(uint32_t buffer[]) {
   asm volatile("lw x1,    0(%0)" : : "r"(&buffer[0]));
@@ -1712,9 +1711,9 @@ status_t handle_ibex_fi_char_mem_op_loop(ujson_t *uj) {
 
   // Send loop counters & ERR_STATUS to host.
   ibex_fi_loop_counter_mirrored_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Send loop counters & ERR_STATUS to host.
@@ -1762,9 +1761,9 @@ status_t handle_ibex_fi_char_register_file(ujson_t *uj) {
   // Send result & ERR_STATUS to host.
   ibex_fi_faulty_reg_data_t uj_output;
 
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   uj_output.err_status = codes;
@@ -1868,9 +1867,9 @@ status_t handle_ibex_fi_char_register_file_read(ujson_t *uj) {
 
   // Write register data to output.
   ibex_fi_faulty_reg_data_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Read ERR_STATUS register.
@@ -1902,7 +1901,7 @@ status_t handle_ibex_fi_char_reg_op_loop(ujson_t *uj) {
 
   uint32_t registers[32] = {0};
   read_all_regs(registers);
-  
+
   init_reg_ref_values();
   asm volatile(INITX5);
   asm volatile(INITX6);
@@ -1929,9 +1928,9 @@ status_t handle_ibex_fi_char_reg_op_loop(ujson_t *uj) {
   TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
 
   ibex_fi_loop_counter_mirrored_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Send loop counters & ERR_STATUS to host.
@@ -1991,10 +1990,10 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   pentest_sensor_alerts_t sensor_alerts = pentest_get_sensor_alerts();
 
   ibex_fi_faulty_reg_data_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
 
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Read ERR_STATUS register.
@@ -2057,7 +2056,6 @@ status_t handle_ibex_fi_char_sram_static(ujson_t *uj) {
 
   write_all_regs(registers);
 
-
   // Get registered alerts from alert handler.
   reg_alerts = pentest_get_triggered_alerts();
   // Get fatal and recoverable AST alerts from sensor controller.
@@ -2065,10 +2063,10 @@ status_t handle_ibex_fi_char_sram_static(ujson_t *uj) {
 
   // Compare against reference values.
   ibex_fi_faulty_reg_data_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
 
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Read ERR_STATUS register.
@@ -2135,10 +2133,10 @@ status_t handle_ibex_fi_char_sram_write(ujson_t *uj) {
   uint32_t res_values[32];
   for (int i = 0; i < 32; i++) {
     res_values[i] = mem_values[i];
-    uj_output.data[i] = res_values[i];
+    uj_output.memory[i] = res_values[i];
   }
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.regs[it] = reg_values[it];
+    uj_output.registers[it] = reg_values[it];
   }
 
   // Read ERR_STATUS register.
@@ -2274,7 +2272,7 @@ status_t handle_ibex_fi_char_sram_write_read(ujson_t *uj) {
   asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
   PENTEST_ASM_TRIGGER_LOW;
 
-// Load register values.
+  // Load register values.
   get_res_values(res_values);
 
   write_all_regs(registers);
@@ -2286,10 +2284,10 @@ status_t handle_ibex_fi_char_sram_write_read(ujson_t *uj) {
 
   // Compare against reference values.
   ibex_fi_faulty_reg_data_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
 
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Read ERR_STATUS register.
@@ -2322,7 +2320,7 @@ status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
     mmio_region_write32(sram_region_main_addr, i * (ptrdiff_t)sizeof(uint32_t),
                         ~ref_values[0]);
   }
-  
+
   uint32_t reg_values[32];
 
   uint32_t registers[32] = {0};
@@ -2478,12 +2476,11 @@ status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
   ibex_fi_test_result_sram_t uj_output;
   // Read back and compare against reference values.
   for (int i = 0; i < 64; i++) {
-    uj_output.data[i] = mem_values[i];
+    uj_output.memory[i] = mem_values[i];
   }
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.regs[it] = reg_values[it];
+    uj_output.registers[it] = reg_values[it];
   }
-  
 
   // Read ERR_STATUS register.
   dif_rv_core_ibex_error_status_t codes;
@@ -2579,7 +2576,7 @@ status_t handle_ibex_fi_char_unconditional_branch_nop(ujson_t *uj) {
 
   // Initialize all registers except x2 and x8 with reference values.
   init_reg_ref_values();
-  
+
   // Init x5 register we are using for the increment.
   asm volatile(INITX5);
 
@@ -2687,9 +2684,9 @@ status_t handle_ibex_fi_char_unrolled_mem_op_loop(ujson_t *uj) {
   // Send loop counter & ERR_STATUS to host.
   ibex_fi_loop_counter_reg_t uj_output;
 
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   uj_output.loop_counter = loop_counter;
@@ -2739,10 +2736,10 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop(ujson_t *uj) {
 
   // Check if one or multiple registers values are faulty.
   ibex_fi_loop_counter_reg_t uj_output;
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   // Ignore the first entry as it contains x5 which we overwrote.
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   // Get registered alerts from alert handler.
@@ -2810,9 +2807,9 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj) {
   // Send loop counter & ERR_STATUS to host.
   ibex_fi_faulty_reg_data_t uj_output;
 
-  memset(uj_output.data, 0, sizeof(uj_output.data));
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
   for (uint32_t it = 0; it < 32; it++) {
-    uj_output.data[it] = res_values[it];
+    uj_output.registers[it] = res_values[it];
   }
 
   uj_output.err_status = codes;
