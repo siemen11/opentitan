@@ -2898,45 +2898,6 @@ status_t handle_ibex_fi_otp_read_lock(ujson_t *uj) {
   return OK_STATUS();
 }
 
-status_t handle_ibex_fi_otp_write_lock(ujson_t *uj) {
-  // Clear registered alerts in alert handler.
-  pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
-  // Clear the AST recoverable alerts.
-  pentest_clear_sensor_recov_alerts();
-
-  uint64_t faulty_token[kSecret0TestUnlockTokenSizeIn64BitWords];
-  for (size_t i = 0; i < kSecret0TestUnlockTokenSizeIn64BitWords; i++) {
-    faulty_token[i] = 0xdeadbeef;
-  }
-  PENTEST_ASM_TRIGGER_HIGH
-  TRY(otp_ctrl_testutils_dai_write64(
-      &otp, kDifOtpCtrlPartitionSecret0, kSecret0TestUnlockTokenOffset,
-      faulty_token, kSecret0TestUnlockTokenSizeIn64BitWords));
-  asm volatile(NOP10);
-  PENTEST_ASM_TRIGGER_LOW
-
-  // Get registered alerts from alert handler.
-  reg_alerts = pentest_get_triggered_alerts();
-  // Get fatal and recoverable AST alerts from sensor controller.
-  pentest_sensor_alerts_t sensor_alerts = pentest_get_sensor_alerts();
-
-  // Read ERR_STATUS register.
-  dif_rv_core_ibex_error_status_t codes;
-  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
-
-  // Send res & ERR_STATUS to host.
-  ibex_fi_test_result_t uj_output;
-  uj_output.result =
-      0;  // Writing to the locked OTP partition crashes the chip.
-  uj_output.err_status = codes;
-  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
-  memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
-         sizeof(sensor_alerts.alerts));
-  RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
-
-  return OK_STATUS();
-}
-
 status_t handle_ibex_fi(ujson_t *uj) {
   ibex_fi_subcommand_t cmd;
   TRY(ujson_deserialize_ibex_fi_subcommand_t(uj, &cmd));
@@ -3011,8 +2972,6 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_otp_data_read(uj);
     case kIbexFiSubcommandOtpReadLock:
       return handle_ibex_fi_otp_read_lock(uj);
-    case kIbexFiSubcommandOtpWriteLock:
-      return handle_ibex_fi_otp_write_lock(uj);
     default:
       LOG_ERROR("Unrecognized IBEX FI subcommand: %d", cmd);
       return INVALID_ARGUMENT();
