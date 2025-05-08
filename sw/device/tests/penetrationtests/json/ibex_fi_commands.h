@@ -14,6 +14,8 @@ extern "C" {
 #define IBEXFI_SUBCOMMAND(_, value) \
     value(_, AddressTranslation) \
     value(_, AddressTranslationCfg) \
+    value(_, CharSingleBeq) \
+    value(_, CharSingleBne) \
     value(_, CharCondBranchBeq) \
     value(_, CharCondBranchBge) \
     value(_, CharCondBranchBgeu) \
