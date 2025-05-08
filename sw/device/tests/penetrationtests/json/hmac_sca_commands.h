@@ -22,6 +22,13 @@ extern "C" {
     value(_, Single)
 UJSON_SERDE_ENUM(HmacScaSubcommand, hmac_sca_subcommand_t, HMACSCA_SUBCOMMAND);
 
+#define HMACSCA_TRIGGERS(field, string) \
+    field(start_trigger, bool) \
+    field(msg_trigger, bool) \
+    field(process_trigger, bool) \
+    field(finish_trigger, bool)
+UJSON_SERDE_STRUCT(PenetrationtestHmacScaTriggers, penetrationtest_hmac_sca_triggers_t, HMACSCA_TRIGGERS);
+
 #define HMACSCA_MESSAGE(field, string) \
     field(message, uint8_t, HMACSCA_CMD_MAX_MESSAGE_BYTES)
 UJSON_SERDE_STRUCT(PenetrationtestHmacScaMessage, penetrationtest_hmac_sca_message_t, HMACSCA_MESSAGE);
