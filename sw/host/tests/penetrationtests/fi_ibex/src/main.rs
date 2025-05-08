@@ -78,6 +78,8 @@ fn run_fi_ibex_testcase(
     match test_case.command.as_str() {
         "AddressTranslation" => IbexFiSubcommand::AddressTranslation,
         "AddressTranslationCfg" => IbexFiSubcommand::AddressTranslationCfg,
+        "CharSingleBeq" => IbexFiSubcommand::CharSingleBeq,
+        "CharSingleBne" => IbexFiSubcommand::CharSingleBne,
         "CharCondBranchBeq" => IbexFiSubcommand::CharCondBranchBeq,
         "CharCondBranchBge" => IbexFiSubcommand::CharCondBranchBge,
         "CharCondBranchBgeu" => IbexFiSubcommand::CharCondBranchBgeu,

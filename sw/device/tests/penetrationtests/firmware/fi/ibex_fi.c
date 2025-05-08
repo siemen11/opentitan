@@ -76,6 +76,7 @@ uint32_t
 #define CONDBRANCHBGEU "bgeu x5, x6, endfitestfaultybgeu\n"
 #define CONDBRANCHBLT "blt x5, x6, endfitestfaultyblt\n"
 #define CONDBRANCHBLTU "bltu x5, x6, endfitestfaultybltu\n"
+#define SINGLEBRANCHBE
 
 // Init x5 = 0 macro.
 #define INITX5 "addi x5, x0, 0"
@@ -615,6 +616,93 @@ status_t handle_ibex_fi_address_translation_config(ujson_t *uj) {
   memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
          sizeof(sensor_alerts.alerts));
   RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_char_single_beq(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
+  // Clear the AST recoverable alerts.
+  pentest_clear_sensor_recov_alerts();
+
+  uint32_t result1 = 0;
+  uint32_t result2 = 0;
+
+  // FI code target.
+  asm volatile("li x5, 0x1a\n");
+  asm volatile("li x6, 0x1a\n");
+  PENTEST_ASM_TRIGGER_HIGH
+  asm volatile(NOP10 "beq x5, x6, correctbeq\n" NOP10
+                     "j badbeq\n"
+                     "correctbeq:\n"
+                     "addi x5, x5, 0x11\n"
+                     "addi x6, x6, 0x22\n"
+                     "badbeq:\n");
+  PENTEST_ASM_TRIGGER_LOW
+  asm volatile("mv %0, x5" : "=r"(result1));
+  asm volatile("mv %0, x6" : "=r"(result2));
+
+  // Get registered alerts from alert handler.
+  reg_alerts = pentest_get_triggered_alerts();
+  // Get fatal and recoverable AST alerts from sensor controller.
+  pentest_sensor_alerts_t sensor_alerts = pentest_get_sensor_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send loop counters & ERR_STATUS to host.
+  ibex_fi_test_result_mult_t uj_output;
+  uj_output.result1 = result1;
+  uj_output.result2 = result2;
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
+         sizeof(sensor_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_mult_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_char_single_bne(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
+  // Clear the AST recoverable alerts.
+  pentest_clear_sensor_recov_alerts();
+
+  uint32_t result1 = 0;
+  uint32_t result2 = 0;
+
+  asm volatile("li x5, 0x1a\n");
+  asm volatile("li x6, 0x0a\n");
+  PENTEST_ASM_TRIGGER_HIGH
+  asm volatile(NOP10 "bne x5, x6, correctbne\n" NOP10
+                     "j badbne\n"
+                     "correctbne:\n"
+                     "addi x5, x5, 0x11\n"
+                     "addi x6, x6, 0x22\n"
+                     "badbne:\n");
+  PENTEST_ASM_TRIGGER_LOW
+  asm volatile("mv %0, x5" : "=r"(result1));
+  asm volatile("mv %0, x6" : "=r"(result2));
+
+  // Get registered alerts from alert handler.
+  reg_alerts = pentest_get_triggered_alerts();
+  // Get fatal and recoverable AST alerts from sensor controller.
+  pentest_sensor_alerts_t sensor_alerts = pentest_get_sensor_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send loop counters & ERR_STATUS to host.
+  ibex_fi_test_result_mult_t uj_output;
+  uj_output.result1 = result1;
+  uj_output.result2 = result2;
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
+         sizeof(sensor_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_test_result_mult_t, uj, &uj_output);
   return OK_STATUS();
 }
 
@@ -2906,6 +2994,10 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_address_translation(uj);
     case kIbexFiSubcommandAddressTranslationCfg:
       return handle_ibex_fi_address_translation_config(uj);
+    case kIbexFiSubcommandCharSingleBeq:
+      return handle_ibex_fi_char_single_beq(uj);
+    case kIbexFiSubcommandCharSingleBne:
+      return handle_ibex_fi_char_single_bne(uj);
     case kIbexFiSubcommandCharCondBranchBeq:
       return handle_ibex_fi_char_conditional_branch_beq(uj);
     case kIbexFiSubcommandCharCondBranchBge:
