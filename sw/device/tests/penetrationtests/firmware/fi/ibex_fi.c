@@ -143,7 +143,7 @@ static dif_flash_ctrl_device_info_t flash_info;
 // we can do the write/read test without the risk of clobbering data
 // used by the program.
 OT_SECTION(".data")
-static volatile uint32_t sram_main_buffer[256];
+static volatile uint32_t sram_main_buffer[1<<13];
 
 // Make sure that this function does not get optimized by the compiler.
 void increment_counter(void) __attribute__((optnone)) {
@@ -2329,6 +2329,13 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
+  int sram_buffer_size = sizeof(sram_main_buffer)/4;
+  int sram_half_size = sram_buffer_size/2;
+
+  for (uint32_t i = 0; i < sram_buffer_size; i++) {
+    sram_main_buffer[i] = i;
+  }
+
   uint32_t res_values[32];
 
   uint32_t registers[32] = {0};
@@ -2339,22 +2346,20 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
 
   // FI code target.
   PENTEST_ASM_TRIGGER_HIGH
-  // Write reference value into SRAM.
-  sram_main_buffer[0] = ref_values[0];
   // Read from SRAM into temporary registers.
-  asm volatile("lw x5, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x6, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x7, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x12, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x13, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x14, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x15, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x16, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x17, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x28, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x29, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x30, (%0)" : : "r"(&sram_main_buffer[0]));
-  asm volatile("lw x31, (%0)" : : "r"(&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x6, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x7, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x12, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x13, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x14, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x15, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x16, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x17, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x28, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x29, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x30, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
+  asm volatile("lw x31, (%0)" : : "r"(&sram_main_buffer[sram_half_size]));
   PENTEST_ASM_TRIGGER_LOW
 
   // Load register values.
