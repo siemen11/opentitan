@@ -6,6 +6,7 @@
 
 #include "sw/device/lib/base/csr.h"
 #include "sw/device/lib/base/csr_registers.h"
+#include "sw/device/lib/base/hardened.h"
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/base/status.h"
 #include "sw/device/lib/dif/dif_flash_ctrl.h"
@@ -143,7 +144,7 @@ static dif_flash_ctrl_device_info_t flash_info;
 // we can do the write/read test without the risk of clobbering data
 // used by the program.
 OT_SECTION(".data")
-static volatile uint32_t sram_main_buffer[1<<13];
+static volatile uint32_t sram_main_buffer[1 << 13];
 
 // Make sure that this function does not get optimized by the compiler.
 void increment_counter(void) __attribute__((optnone)) {
@@ -733,6 +734,78 @@ status_t handle_ibex_fi_char_addi_single_beq(ujson_t *uj) {
   memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
          sizeof(sensor_alerts.alerts));
   RESP_OK(ujson_serialize_ibex_fi_test_result_single_branch_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+status_t handle_ibex_fi_char_addi_single_beq_cm(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
+  // Clear the AST recoverable alerts.
+  pentest_clear_sensor_recov_alerts();
+
+  // Initialize x5-x7, x12-x17, and x28-x30 with 0.
+  init_regs(0);
+  uint32_t res_values[13];
+
+  // FI code target.
+  volatile hardened_bool_t value1 = HARDENED_BOOL_TRUE;
+  volatile hardened_bool_t value2 = HARDENED_BOOL_TRUE;
+  PENTEST_ASM_TRIGGER_HIGH
+  asm volatile(
+      "c.addi x12, 1\n"
+      "c.addi x13, 1\n"
+      "c.addi x14, 1\n"
+      "c.addi x15, 1\n"
+      "c.addi x16, 1\n"
+      "c.addi x17, 1\n"
+      "c.addi x28, 1\n"
+      "c.addi x29, 1\n"
+      "c.addi x30, 1\n"
+      "c.addi x31, 1\n");
+  HARDENED_CHECK_EQ(value1, value2);
+  asm volatile(
+      "c.addi x12, 16\n"
+      "c.addi x13, 16\n"
+      "j labelend\n"
+      "j labelend\n"
+      "c.addi x14, 16\n"
+      "j labelend\n"
+      "c.addi x15, 16\n"
+      "j labelend\n"
+      "c.addi x16, 16\n"
+      "j labelend\n"
+      "j labelend\n"
+      "j labelend\n"
+      "c.addi x17, 16\n"
+      "c.addi x28, 16\n"
+      "j labelend\n"
+      "j labelend\n"
+      "c.addi x29, 16\n"
+      "c.addi x30, 16\n"
+      "c.addi x31, 16\n"
+      "labelend:\n");
+  PENTEST_ASM_TRIGGER_LOW
+  read_regs(res_values);
+
+  // Get registered alerts from alert handler.
+  reg_alerts = pentest_get_triggered_alerts();
+  // Get fatal and recoverable AST alerts from sensor controller.
+  pentest_sensor_alerts_t sensor_alerts = pentest_get_sensor_alerts();
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send loop counters & ERR_STATUS to host.
+  ibex_fi_faulty_reg_data_t uj_output;
+  for (int i = 0; i < 13; i++) {
+    uj_output.registers[i] = res_values[i];
+  }
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
+         sizeof(sensor_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_faulty_reg_data_t, uj, &uj_output);
   return OK_STATUS();
 }
 
@@ -2329,8 +2402,8 @@ status_t handle_ibex_fi_char_sram_read(ujson_t *uj) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
-  int sram_buffer_size = sizeof(sram_main_buffer)/4;
-  int sram_half_size = sram_buffer_size/2;
+  int sram_buffer_size = sizeof(sram_main_buffer) / 4;
+  int sram_half_size = sram_buffer_size / 2;
 
   for (uint32_t i = 0; i < sram_buffer_size; i++) {
     sram_main_buffer[i] = i;
@@ -3293,6 +3366,8 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_char_single_beq(uj);
     case kIbexFiSubcommandCharAddiSingleBeq:
       return handle_ibex_fi_char_addi_single_beq(uj);
+    case kIbexFiSubcommandCharAddiSingleBeqCm:
+      return handle_ibex_fi_char_addi_single_beq_cm(uj);
     case kIbexFiSubcommandCharAddiSingleBeqNeg:
       return handle_ibex_fi_char_addi_single_beq_neg(uj);
     case kIbexFiSubcommandCharSingleBne:
