@@ -55,6 +55,7 @@ cc_library(
         "//sw/device/silicon_creator/manuf/lib:otp_fields",
         "//sw/device/tests/penetrationtests/firmware/lib:pentest_lib",
         "//sw/device/tests/penetrationtests/json:ibex_fi_commands",
+        "//sw/device/lib/base:hardened",
     ],
 )
 
