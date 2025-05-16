@@ -749,7 +749,7 @@ status_t handle_ibex_fi_char_addi_single_beq_cm(ujson_t *uj) {
 
   // FI code target.
   volatile hardened_bool_t value1 = HARDENED_BOOL_TRUE;
-  volatile hardened_bool_t value2 = HARDENED_BOOL_TRUE;
+  volatile hardened_bool_t value2 = HARDENED_BOOL_FALSE;
   PENTEST_ASM_TRIGGER_HIGH
   asm volatile(
       "c.addi x12, 1\n"
