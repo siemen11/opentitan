@@ -2759,6 +2759,99 @@ status_t handle_ibex_fi_char_sram_write_read(ujson_t *uj) {
   return OK_STATUS();
 }
 
+status_t handle_ibex_fi_char_sram_write_read_alt(ujson_t *uj) {
+  // Clear registered alerts in alert handler.
+  pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
+  // Clear the AST recoverable alerts.
+  pentest_clear_sensor_recov_alerts();
+
+  // Initialize the SRAM with a counter
+  for (uint32_t i = 0; i < 16; i++) {
+    sram_main_buffer[i] = i;
+  }
+
+  uint32_t res_values[32];
+
+  uint32_t registers[32] = {0};
+  read_all_regs(registers);
+
+  // Initialize all registers except x2 and x8 with reference values.
+  init_reg_ref_values();
+
+  PENTEST_ASM_TRIGGER_HIGH
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[0]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[1]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[1]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[2]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[2]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[3]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[3]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[4]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[4]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[5]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[5]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[6]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[6]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[7]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[7]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[8]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[8]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[9]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[9]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[10]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[10]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[11]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[11]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[12]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[12]));
+  asm volatile("sw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[13]));
+  asm volatile("lw x6, (%0)" : : "r"((uint32_t *)&sram_main_buffer[13]));
+  asm volatile("sw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[14]));
+  asm volatile("lw x7, (%0)" : : "r"((uint32_t *)&sram_main_buffer[14]));
+  asm volatile("sw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[15]));
+  asm volatile("lw x5, (%0)" : : "r"((uint32_t *)&sram_main_buffer[15]));
+  PENTEST_ASM_TRIGGER_LOW;
+
+  // Load register values.
+  get_res_values(res_values);
+  uint32_t sram_values[16] = {0};
+  for (int i = 0; i < 16; i++) {
+    sram_values[i] = sram_main_buffer[i];
+  }
+
+  write_all_regs(registers);
+
+  // Get registered alerts from alert handler.
+  reg_alerts = pentest_get_triggered_alerts();
+  // Get fatal and recoverable AST alerts from sensor controller.
+  pentest_sensor_alerts_t sensor_alerts = pentest_get_sensor_alerts();
+
+  // Compare against reference values.
+  ibex_fi_faulty_sram_write_read_output_t uj_output;
+  memset(uj_output.registers, 0, sizeof(uj_output.registers));
+  for (uint32_t it = 0; it < 32; it++) {
+    uj_output.registers[it] = res_values[it];
+  }
+
+  memset(uj_output.memory, 0, sizeof(uj_output.memory));
+  for (uint32_t it = 0; it < 16; it++) {
+    uj_output.memory[it] = sram_values[it];
+  }
+
+  // Read ERR_STATUS register.
+  dif_rv_core_ibex_error_status_t codes;
+  TRY(dif_rv_core_ibex_get_error_status(&rv_core_ibex, &codes));
+
+  // Send res & ERR_STATUS to host.
+  uj_output.err_status = codes;
+  memcpy(uj_output.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
+  memcpy(uj_output.ast_alerts, sensor_alerts.alerts,
+         sizeof(sensor_alerts.alerts));
+  RESP_OK(ujson_serialize_ibex_fi_faulty_sram_write_read_output_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
 status_t handle_ibex_fi_char_sram_write_static_unrolled(ujson_t *uj) {
   // Clear registered alerts in alert handler.
   pentest_registered_alerts_t reg_alerts = pentest_get_triggered_alerts();
@@ -3424,6 +3517,8 @@ status_t handle_ibex_fi(ujson_t *uj) {
       return handle_ibex_fi_char_sram_write(uj);
     case kIbexFiSubcommandCharSramWriteRead:
       return handle_ibex_fi_char_sram_write_read(uj);
+    case kIbexFiSubcommandCharSramWriteReadAlt:
+      return handle_ibex_fi_char_sram_write_read_alt(uj);
     case kIbexFiSubcommandCharSramWriteStaticUnrolled:
       return handle_ibex_fi_char_sram_write_static_unrolled(uj);
     case kIbexFiSubcommandCharUncondBranch:
