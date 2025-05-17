@@ -154,5 +154,10 @@
     "test_case_id": 31,
     "command": "CharAddiSingleBneNeg",
     "expected_output": "{\"result1\":26,\"result2\":26,\"err_status\":0,\"alerts\":[0,0,0],\"ast_alerts\":[0,0]}"
+  },
+  {
+    "test_case_id": 32,
+    "command": "CharSramWriteReadAlt",
+    "expected_output": "{\"result1\":26,\"result2\":26,\"err_status\":0,\"alerts\":[0,0,0],\"ast_alerts\":[0,0]}"
   }
 ]

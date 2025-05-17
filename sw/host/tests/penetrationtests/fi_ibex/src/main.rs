@@ -108,6 +108,7 @@ fn run_fi_ibex_testcase(
         "CharSramStatic" => IbexFiSubcommand::CharSramStatic,
         "CharSramWrite" => IbexFiSubcommand::CharSramWrite,
         "CharSramWriteRead" => IbexFiSubcommand::CharSramWriteRead,
+        "CharSramWriteReadAlt" => IbexFiSubcommand::CharSramWriteReadAlt,
         "CharSramWriteStaticUnrolled" => IbexFiSubcommand::CharSramWriteStaticUnrolled,
         "CharUncondBranch" => IbexFiSubcommand::CharUncondBranch,
         "CharUncondBranchNop" => IbexFiSubcommand::CharUncondBranchNop,
