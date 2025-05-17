@@ -29,7 +29,9 @@ extern "C" {
     value(_, TLWriteBatchFvsr) \
     value(_, TLWriteBatchFvsrFixAddress) \
     value(_, TLWriteBatchRandom) \
-    value(_, TLWriteBatchRandomFixAddress)
+    value(_, TLWriteBatchRandomFixAddress) \
+    value(_, CombiOperationsBatchFvsr) \
+    value(_, CombiOperationsBatch)
 UJSON_SERDE_ENUM(IbexScaSubcommand, ibex_sca_subcommand_t, IBEXSCA_SUBCOMMAND);
 
 #define IBEXSCA_TEST_DATA(field, string) \
@@ -50,9 +52,20 @@ UJSON_SERDE_STRUCT(IbexScaKey, ibex_sca_key_t, IBEXSCA_KEY);
     field(fixed_data, uint32_t)
 UJSON_SERDE_STRUCT(IbexScaTestFvsr, ibex_sca_test_fvsr_t, IBEXSCA_TEST_FVSR);
 
+#define IBEXSCA_TEST_BATCH_OPS(field, string) \
+    field(num_iterations, uint32_t) \
+    field(trigger, uint32_t) \
+    field(fixed_data1, uint32_t) \
+    field(fixed_data2, uint32_t)
+UJSON_SERDE_STRUCT(IbexScaTestBatchOps, ibex_sca_test_batch_ops_t, IBEXSCA_TEST_BATCH_OPS);
+
 #define IBEXSCA_RESULT(field, string) \
     field(result, uint32_t)
 UJSON_SERDE_STRUCT(IbexScaResult, ibex_sca_result_t, IBEXSCA_RESULT);
+
+#define IBEXSCA_OPS_RESULT(field, string) \
+    field(result, uint32_t, 12)
+UJSON_SERDE_STRUCT(IbexScaOpsResult, ibex_sca_ops_result_t, IBEXSCA_OPS_RESULT);
 
 #define IBEXSCA_BATCH(field, string) \
     field(num_iterations, uint32_t)

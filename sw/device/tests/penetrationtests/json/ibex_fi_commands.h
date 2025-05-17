@@ -55,7 +55,8 @@ extern "C" {
     value(_, Init) \
     value(_, OtpDataRead) \
     value(_, OtpReadLock) \
-    value(_, OtpWriteLock)
+    value(_, OtpWriteLock) \
+    value(_, CharCombi)
 UJSON_SERDE_ENUM(IbexFiSubcommand, ibex_fi_subcommand_t, IBEXFI_SUBCOMMAND);
 
 #define IBEXFI_TEST_RESULT(field, string) \
@@ -151,6 +152,15 @@ UJSON_SERDE_STRUCT(IbexFiFaultyRegData, ibex_fi_faulty_reg_data_t, IBEXFI_FAULTY
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(IbexFiFaultyAddresses, ibex_fi_faulty_addresses_t, IBEXFI_FAULTY_ADDRESSES);
+
+#define IBEXFI_TEST_RESULT_COMBI_1(field, string) \
+    field(registers, uint32_t, 12) 
+UJSON_SERDE_STRUCT(IbexFiTestResultCombi1, ibex_fi_test_result_combi_1_t, IBEXFI_TEST_RESULT_COMBI_1);
+
+#define IBEXFI_TEST_RESULT_COMBI_2(field, string) \
+    field(loop_counter, uint32_t)\
+    field(registers, uint32_t, 13) 
+UJSON_SERDE_STRUCT(IbexFiTestResultCombi2, ibex_fi_test_result_combi_2_t, IBEXFI_TEST_RESULT_COMBI_2);
 
 // clang-format on
 

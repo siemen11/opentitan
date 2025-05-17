@@ -41,6 +41,15 @@ struct FiLcCtrlTestCase {
     #[serde(default)]
     input: String,
     expected_output: String,
+    #[serde(default)]
+    expected_output2: String,
+    #[serde(default)]
+    expected_output3: String,
+    #[serde(default)]
+    expected_output4: String,
+    // This is the TESTOS version, and is not checked
+    #[serde(default)]
+    expected_output5: String,
 }
 
 fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
@@ -51,6 +60,30 @@ fn filter_response(response: serde_json::Value) -> serde_json::Map<String, serde
     map.remove("err_status");
     // Device ID is different for each device.
     map.remove("device_id");
+    // The following parameters are returned on init but are device dependent
+    map.remove("config_version");
+    map.remove("sram_exec_mode");
+    map.remove("ownership_key_alg");
+    map.remove("update_mode");
+    map.remove("min_security_version_bl0");
+    map.remove("lock_constraint");
+    map.remove("digest");
+    map.remove("identifier");
+    map.remove("scm_revision_low");
+    map.remove("scm_revision_high");
+    map.remove("rom_ext_slot");
+    map.remove("rom_ext_major");
+    map.remove("rom_ext_minor");
+    map.remove("rom_ext_size");
+    map.remove("bl0_slot");
+    map.remove("ownership_state");
+    map.remove("ownership_transfers");
+    map.remove("rom_ext_min_sec_ver");
+    map.remove("bl0_min_sec_ver");
+    map.remove("primary_bl0_slot");
+    map.remove("retention_ram_initialized");
+    map.remove("bl0");
+    map.remove("rom_ext");
     // Filter the clock jitter enable/disable field as on A2 it is always enabled
     // when writing any value into the config register.
     map.remove("clock_jitter_en");
@@ -105,6 +138,69 @@ fn run_fi_lc_ctrl_testcase(
             output
         );
         *fail_counter += 1;
+    }
+
+    if test_case.expected_output2 != "" {
+        let exp_output2: serde_json::Value =
+            serde_json::from_str(test_case.expected_output2.as_str()).unwrap();
+        let output_expected2 = filter_response(exp_output2.clone());
+        let output2 = serde_json::Value::recv(uart, opts.timeout, false)?;
+        let output_received2 = filter_response(output2.clone());
+        // Check received with the second expected output.
+        if output_expected2 != output_received2 {
+            log::info!(
+                "FAILED {} test #{}: expected = '{}', actual = '{}'",
+                test_case.command,
+                test_case.test_case_id,
+                exp_output2,
+                output2
+            );
+            *fail_counter += 1;
+        }
+    }
+
+    if test_case.expected_output3 != "" {
+        let exp_output3: serde_json::Value =
+            serde_json::from_str(test_case.expected_output3.as_str()).unwrap();
+        let output_expected3 = filter_response(exp_output3.clone());
+        let output3 = serde_json::Value::recv(uart, opts.timeout, false)?;
+        let output_received3 = filter_response(output3.clone());
+        // Check received with the second expected output.
+        if output_expected3 != output_received3 {
+            log::info!(
+                "FAILED {} test #{}: expected = '{}', actual = '{}'",
+                test_case.command,
+                test_case.test_case_id,
+                exp_output3,
+                output3
+            );
+            *fail_counter += 1;
+        }
+    }
+
+    if test_case.expected_output4 != "" {
+        let exp_output4: serde_json::Value =
+            serde_json::from_str(test_case.expected_output4.as_str()).unwrap();
+        let output_expected4 = filter_response(exp_output4.clone());
+        let output4 = serde_json::Value::recv(uart, opts.timeout, false)?;
+        let output_received4 = filter_response(output4.clone());
+        // Check received with the second expected output.
+        if output_expected4 != output_received4 {
+            log::info!(
+                "FAILED {} test #{}: expected = '{}', actual = '{}'",
+                test_case.command,
+                test_case.test_case_id,
+                exp_output4,
+                output4
+            );
+            *fail_counter += 1;
+        }
+    }
+
+    // The fifth response is just a string and not a json output
+    // We read it but do not check it
+    if test_case.expected_output5 != "" {
+        serde_json::Value::recv(uart, opts.timeout, false)?;
     }
 
     Ok(())

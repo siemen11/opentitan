@@ -4,7 +4,11 @@
     "command": "Init",
     "mode": "{\"fpga_mode\": 0}",
     "input": "{\"icache_disable\": true,\"dummy_instr_disable\": true,\"enable_jittery_clock\": false,\"enable_sram_readback\": false}",
-    "expected_output": "{\"device_id\":[0,0,0,0,0,0,0,0],\"clock_jitter_locked\":false,\"clock_jitter_en\":true,\"sram_main_readback_locked\":false,\"sram_main_readback_en\":false,\"sram_ret_readback_locked\":false,\"sram_ret_readback_en\":false}"
+    "expected_output": "{\"device_id\":[0,0,0,0,0,0,0,0],\"clock_jitter_locked\":false,\"clock_jitter_en\":false,\"sram_main_readback_locked\":false,\"sram_main_readback_en\":false,\"sram_ret_readback_locked\":false,\"sram_ret_readback_en\":false}",
+    "expected_output2": "{\"config_version\":1,\"sram_exec_mode\":1480937036,\"ownership_key_alg\":909455952,\"update_mode\":1447839059,\"min_security_version_bl0\":4294967295,\"lock_constraint\":0}",
+    "expected_output3": "{\"digest\":[182499646,2229663627,38949499,2160385358,3814829839,4035068582,407466978,3873778756],\"identifier\":1196379202,\"scm_revision_low\":3101226556,\"scm_revision_high\":796759137,\"rom_ext_slot\":1600078145,\"rom_ext_major\":0,\"rom_ext_minor\":1,\"rom_ext_size\":65536,\"bl0_slot\":1600078145,\"ownership_state\":1145984847,\"ownership_transfers\":0,\"rom_ext_min_sec_ver\":0,\"bl0_min_sec_ver\":0,\"primary_bl0_slot\":1600078145,\"retention_ram_initialized\":1849}",
+    "expected_output4": "{\"bl0\":[483454297,1151933723,3294362183,1215297679,482647365,348581823,31098716,1840941383],\"rom_ext\":[2549944018,3948676481,1925919881,3176740930,3190736515,2402167004,857847262,3572864664]}",
+    "expected_output5": "TESTOS: v0.1.0"
   },
   {
     "test_case_id": 2,

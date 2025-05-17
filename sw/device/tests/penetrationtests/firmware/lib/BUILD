@@ -61,6 +61,9 @@ cc_library(
         "//sw/device/lib/testing/test_framework:ujson_ottf",
         "//sw/device/lib/ujson",
         "//sw/device/tests/penetrationtests/json:pentest_lib_commands",
+        "//sw/device/silicon_creator/lib/ownership:ownership",
+        "//sw/device/silicon_creator/lib/drivers:retention_sram",
+        "//sw/device/silicon_creator/lib/base:boot_measurements",
     ] + select({
         "//sw/device:is_english_breakfast": [],
         "//conditions:default": [
