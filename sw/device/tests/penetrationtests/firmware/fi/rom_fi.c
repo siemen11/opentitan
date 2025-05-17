@@ -115,6 +115,9 @@ status_t handle_rom_fi_init(ujson_t *uj) {
   TRY(pentest_read_device_id(uj_output.device_id));
   RESP_OK(ujson_serialize_penetrationtest_device_info_t, uj, &uj_output);
 
+  // Send back the flash owner page, the boot log, and the boot measurements.
+  pentest_send_chip_data(uj);
+
   return OK_STATUS();
 }
 

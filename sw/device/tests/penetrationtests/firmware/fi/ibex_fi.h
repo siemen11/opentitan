@@ -677,4 +677,19 @@ status_t handle_ibex_fi_otp_write_lock(ujson_t *uj);
  */
 status_t handle_ibex_fi(ujson_t *uj);
 
+/**
+ * ibex.char_combi command handler.
+ *
+ * This FI penetration tests executes three main tests:
+ * - A combination of branch tests
+ * - The loading, incrementing, and storing of values 
+ * - Jump tests
+ *
+ * Faults are injected during the trigger_high & trigger_low.
+ *
+ * @param uj An initialized uJSON context.
+ * @return OK or error.
+ */
+status_t handle_ibex_fi_char_combi(ujson_t *uj);
+
 #endif  // OPENTITAN_SW_DEVICE_TESTS_PENETRATIONTESTS_FIRMWARE_FI_IBEX_FI_H_

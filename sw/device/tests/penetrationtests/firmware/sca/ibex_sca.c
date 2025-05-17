@@ -4,11 +4,15 @@
 
 #include "sw/device/tests/penetrationtests/firmware/sca/ibex_sca.h"
 
+#include "ecc256_keygen_sca.h"
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/base/status.h"
+#include "sw/device/lib/dif/dif_aes.h"
 #include "sw/device/lib/dif/dif_keymgr.h"
 #include "sw/device/lib/dif/dif_kmac.h"
+#include "sw/device/lib/dif/dif_otbn.h"
 #include "sw/device/lib/runtime/log.h"
+#include "sw/device/lib/testing/hmac_testutils.h"
 #include "sw/device/lib/testing/keymgr_testutils.h"
 #include "sw/device/lib/testing/test_framework/check.h"
 #include "sw/device/lib/testing/test_framework/ottf_test_config.h"
@@ -19,12 +23,57 @@
 #include "sw/device/tests/penetrationtests/json/ibex_sca_commands.h"
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+#include "otbn_regs.h"  // Generated.
 
 static dif_keymgr_t keymgr;
 static dif_kmac_t kmac;
+static dif_aes_t aes;
+static dif_hmac_t hmac;
+static dif_otbn_t otbn;
 
 #define MAX_BATCH_SIZE 256
 #define DEST_REGS_CNT 6
+
+OTBN_DECLARE_APP_SYMBOLS(p256_ecdsa_sca);
+
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, mode);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, msg);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, r);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, s);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, x);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, y);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, d0);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, d1);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, k0);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, k1);
+OTBN_DECLARE_SYMBOL_ADDR(p256_ecdsa_sca, x_r);
+
+static const otbn_app_t kOtbnAppP256Ecdsa = OTBN_APP_T_INIT(p256_ecdsa_sca);
+
+static const otbn_addr_t kOtbnVarMode = OTBN_ADDR_T_INIT(p256_ecdsa_sca, mode);
+static const otbn_addr_t kOtbnVarMsg = OTBN_ADDR_T_INIT(p256_ecdsa_sca, msg);
+static const otbn_addr_t kOtbnVarR = OTBN_ADDR_T_INIT(p256_ecdsa_sca, r);
+static const otbn_addr_t kOtbnVarS = OTBN_ADDR_T_INIT(p256_ecdsa_sca, s);
+static const otbn_addr_t kOtbnVarD0 = OTBN_ADDR_T_INIT(p256_ecdsa_sca, d0);
+static const otbn_addr_t kOtbnVarD1 = OTBN_ADDR_T_INIT(p256_ecdsa_sca, d1);
+static const otbn_addr_t kOtbnVarK0 = OTBN_ADDR_T_INIT(p256_ecdsa_sca, k0);
+static const otbn_addr_t kOtbnVarK1 = OTBN_ADDR_T_INIT(p256_ecdsa_sca, k1);
+
+// Enum for the triggers of the combinatorial test
+typedef enum combi_operations_trigger_t {
+  kCombiOpsTriggerXor = 1,
+  kCombiOpsTriggerAdd = 2,
+  kCombiOpsTriggerSub = 4,
+  kCombiOpsTriggerShift = 8,
+  kCombiOpsTriggerMul = 16,
+  kCombiOpsTriggerDiv = 32,
+  kCombiOpsTriggerLw = 64,
+  kCombiOpsTriggerSw =128,
+  kCombiOpsTriggerCp = 256,
+  kCombiOpsTriggerAes = 512,
+  kCombiOpsTriggerHmac = 1024,
+  kCombiOpsTriggerOtbn = 2048,
+} combi_operations_trigger_t;
 
 // NOP macros.
 #define NOP1 "addi x0, x0, 0\n"
@@ -122,7 +171,10 @@ status_t handle_ibex_pentest_init(ujson_t *uj) {
   // pentest_init is not needed. kPentestTriggerSourceAes is selected as a
   // placeholder.
   pentest_init(kPentestTriggerSourceAes,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralKmac);
+               kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
+                   kPentestPeripheralOtbn | kPentestPeripheralCsrng |
+                   kPentestPeripheralEdn | kPentestPeripheralHmac |
+                   kPentestPeripheralKmac | kPentestPeripheralAes);
 
   // Disable the instruction cache and dummy instructions for SCA.
   penetrationtest_device_info_t uj_output;
@@ -133,12 +185,38 @@ status_t handle_ibex_pentest_init(ujson_t *uj) {
       &uj_output.sram_main_readback_locked, &uj_output.sram_ret_readback_locked,
       &uj_output.sram_main_readback_en, &uj_output.sram_ret_readback_en));
 
+  // Init HMAC
+  mmio_region_t base_addr = mmio_region_from_addr(TOP_EARLGREY_HMAC_BASE_ADDR);
+  TRY(dif_hmac_init(base_addr, &hmac));
+
+  // Init AES
+  if (dif_aes_init(mmio_region_from_addr(TOP_EARLGREY_AES_BASE_ADDR), &aes) !=
+      kDifOk) {
+    return ABORTED();
+  }
+
+  if (dif_aes_reset(&aes) != kDifOk) {
+    return ABORTED();
+  }
+
+  // Init OTBN
+  dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn);
+
+  // Load p256 keygen from seed app into OTBN.
+  // This is not used, but just set so it receives input
+  if (otbn_load_app(kOtbnAppP256KeyFromSeed).value != OTCRYPTO_OK.value) {
+    return ABORTED();
+  }
+
   // Key manager not initialized for the handle_ibex_sca_key_sideloading test.
   key_manager_init = false;
 
   // Read device ID and return to host.
   TRY(pentest_read_device_id(uj_output.device_id));
   RESP_OK(ujson_serialize_penetrationtest_device_info_t, uj, &uj_output);
+
+  // Send back the flash owner page, the boot log, and the boot measurements.
+  pentest_send_chip_data(uj);
 
   return OK_STATUS();
 }
@@ -715,6 +793,274 @@ status_t handle_ibex_sca_tl_write_batch_random_fix_address(ujson_t *uj) {
   return OK_STATUS();
 }
 
+void trigger_ibex_sca_combi_operations(uint32_t value1, uint32_t value2,
+                                       uint32_t result[12], uint32_t trigger) {
+  memset(result, 0, 12*sizeof(result[0]));
+
+  if (trigger & kCombiOpsTriggerXor) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "xor x19, x5, x18\n"
+                 "xor x20, x5, x18\n"
+                 "xor x21, x5, x18\n"
+                 "xor x22, x5, x18\n"
+                 "xor x6, x5, x18\n"
+                 "xor x7, x5, x18\n"
+                 "xor x28, x5, x18\n"
+                 "xor x29, x5, x18\n"
+                 "xor x30, x5, x18\n"
+                 "xor x31, x5, x18\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    asm volatile("sw x19, (%0)" ::"r"(&result[0]));
+  }
+
+  if (trigger & kCombiOpsTriggerAdd) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "add x19, x5, x18\n"
+                 "add x20, x5, x18\n"
+                 "add x21, x5, x18\n"
+                 "add x22, x5, x18\n"
+                 "add x6, x5, x18\n"
+                 "add x7, x5, x18\n"
+                 "add x28, x5, x18\n"
+                 "add x29, x5, x18\n"
+                 "add x30, x5, x18\n"
+                 "add x31, x5, x18\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    asm volatile("sw x19, (%0)" ::"r"(&result[1]));
+  }
+
+  if (trigger & kCombiOpsTriggerSub) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "sub x19, x5, x18\n"
+                 "sub x20, x5, x18\n"
+                 "sub x21, x5, x18\n"
+                 "sub x22, x5, x18\n"
+                 "sub x6, x5, x18\n"
+                 "sub x7, x5, x18\n"
+                 "sub x28, x5, x18\n"
+                 "sub x29, x5, x18\n"
+                 "sub x30, x5, x18\n"
+                 "sub x31, x5, x18\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    asm volatile("sw x19, (%0)" ::"r"(&result[2]));
+  }
+
+  if (trigger & kCombiOpsTriggerShift) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "rol x19, x5, x18\n"
+                 "rol x20, x5, x18\n"
+                 "rol x21, x5, x18\n"
+                 "rol x22, x5, x18\n"
+                 "rol x6, x5, x18\n"
+                 "rol x7, x5, x18\n"
+                 "rol x28, x5, x18\n"
+                 "rol x29, x5, x18\n"
+                 "rol x30, x5, x18\n"
+                 "rol x31, x5, x18\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    asm volatile("sw x19, (%0)" ::"r"(&result[3]));
+  }
+
+  if (trigger & kCombiOpsTriggerMul) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "mul x19, x5, x18\n"
+                 "mul x20, x5, x18\n"
+                 "mul x21, x5, x18\n"
+                 "mul x22, x5, x18\n"
+                 "mul x6, x5, x18\n"
+                 "mul x7, x5, x18\n"
+                 "mul x28, x5, x18\n"
+                 "mul x29, x5, x18\n"
+                 "mul x30, x5, x18\n"
+                 "mul x31, x5, x18\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    asm volatile("sw x19, (%0)" ::"r"(&result[4]));
+  }
+
+  if (trigger & kCombiOpsTriggerDiv) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "div x19, x5, x18\n"
+                 "div x20, x5, x18\n"
+                 "div x21, x5, x18\n"
+                 "div x22, x5, x18\n"
+                 "div x6, x5, x18\n"
+                 "div x7, x5, x18\n"
+                 "div x28, x5, x18\n"
+                 "div x29, x5, x18\n"
+                 "div x30, x5, x18\n"
+                 "div x31, x5, x18\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    asm volatile("sw x19, (%0)" ::"r"(&result[5]));
+  }
+
+  if (trigger & kCombiOpsTriggerLw) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "lw x19, (%0)\n"
+                 "lw x20, (%0)\n"
+                 "lw x21, (%0)\n"
+                 "lw x22, (%0)\n"
+                 "lw x6, (%0)\n"
+                 "lw x7, (%0)\n"
+                 "lw x28, (%0)\n"
+                 "lw x29, (%0)\n"
+                 "lw x30, (%0)\n"
+                 "lw x31, (%0)\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    result[6] = value1;
+  }
+
+  if (trigger & kCombiOpsTriggerSw) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x5, (%0)\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    result[7] = value1;
+  }
+
+  if (trigger & kCombiOpsTriggerCp) {
+    init_registers(value1, value2, 0, 0, 0, 0);
+
+    PENTEST_ASM_TRIGGER_HIGH;
+    asm volatile(NOP30
+                 "sw x5, (%1)\n"
+                 "sw x18, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x18, (%1)\n"
+                 "sw x5, (%1)\n"
+                 "sw x18, (%0)\n"
+                 "sw x5, (%0)\n"
+                 "sw x18, (%1)\n"
+                 "sw x5, (%1)\n"
+                 "sw x18, (%0)\n" NOP30
+                 :
+                 : "r"(&value1), "r"(&value2));
+    PENTEST_ASM_TRIGGER_LOW;
+    result[8] = value1;
+  }
+
+  if (trigger & kCombiOpsTriggerAes) {
+    // Write to the plaintext input for the AES
+    dif_aes_data_t data;
+    memset(data.data, (int)value1, sizeof(data.data));
+    PENTEST_ASM_TRIGGER_HIGH;
+    dif_aes_load_data(&aes, data);
+    PENTEST_ASM_TRIGGER_LOW;
+    result[9] = value1;
+  }
+
+  if (trigger & kCombiOpsTriggerHmac) {
+    // Write to the message FIFO for the HMAC
+    uint8_t msg_buf[16];
+    memset(msg_buf, (int)value1, sizeof(msg_buf));
+    PENTEST_ASM_TRIGGER_HIGH;
+    hmac_testutils_push_message(&hmac, (char *)msg_buf, 16);
+    PENTEST_ASM_TRIGGER_LOW;
+    result[10] = value1;
+  }
+
+  if (trigger & kCombiOpsTriggerOtbn) {
+    // Write to the OTBN
+    uint32_t msg[8];
+    memset(msg, (int)value1, sizeof(msg));
+    PENTEST_ASM_TRIGGER_HIGH;
+    otbn_dmem_write(8, msg, kOtbnVarMsg);
+    PENTEST_ASM_TRIGGER_LOW;
+    result[11] = value1;
+  }
+}
+
+status_t handle_ibex_sca_combi_operations_batch_fvsr(ujson_t *uj) {
+  // Get number of iterations and fixed data.
+  ibex_sca_test_batch_ops_t uj_data;
+  TRY(ujson_deserialize_ibex_sca_test_batch_ops_t(uj, &uj_data));
+  TRY_CHECK(uj_data.num_iterations < 256);
+
+  // Generate FvsR values.
+  uint32_t values1[256];
+  uint32_t values2[256];
+  generate_fvsr(uj_data.num_iterations, uj_data.fixed_data1, values1);
+  generate_fvsr(uj_data.num_iterations, uj_data.fixed_data2, values2);
+
+  ibex_sca_ops_result_t uj_output;
+
+  // SCA code target.
+  for (int it = 0; it < uj_data.num_iterations; it++) {
+    trigger_ibex_sca_combi_operations(values1[it], values2[it], uj_output.result,
+                                               uj_data.trigger);
+  }
+
+  // Write back last values to validate generated data.
+  RESP_OK(ujson_serialize_ibex_sca_ops_result_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
+status_t handle_ibex_sca_combi_operations_batch(ujson_t *uj) {
+  // Get number of iterations and fixed data.
+  ibex_sca_test_batch_ops_t uj_data;
+  TRY(ujson_deserialize_ibex_sca_test_batch_ops_t(uj, &uj_data));
+  TRY_CHECK(uj_data.num_iterations < 256);
+
+  ibex_sca_ops_result_t uj_output;
+
+  // SCA code target.
+  for (int it = 0; it < uj_data.num_iterations; it++) {
+    trigger_ibex_sca_combi_operations(
+        uj_data.fixed_data1, uj_data.fixed_data2, uj_output.result, uj_data.trigger);
+  }
+
+  // Write back last values to validate generated data.
+  RESP_OK(ujson_serialize_ibex_sca_ops_result_t, uj, &uj_output);
+  return OK_STATUS();
+}
+
 status_t handle_ibex_sca(ujson_t *uj) {
   ibex_sca_subcommand_t cmd;
   TRY(ujson_deserialize_ibex_sca_subcommand_t(uj, &cmd));
@@ -755,6 +1101,10 @@ status_t handle_ibex_sca(ujson_t *uj) {
       return handle_ibex_sca_tl_write_batch_random(uj);
     case kIbexScaSubcommandTLWriteBatchRandomFixAddress:
       return handle_ibex_sca_tl_write_batch_random_fix_address(uj);
+    case kIbexScaSubcommandCombiOperationsBatchFvsr:
+      return handle_ibex_sca_combi_operations_batch_fvsr(uj);
+    case kIbexScaSubcommandCombiOperationsBatch:
+      return handle_ibex_sca_combi_operations_batch(uj);
     default:
       LOG_ERROR("Unrecognized IBEX SCA subcommand: %d", cmd);
       return INVALID_ARGUMENT();
