@@ -682,7 +682,7 @@ status_t handle_ibex_fi(ujson_t *uj);
  *
  * This FI penetration tests executes three main tests:
  * - A combination of branch tests
- * - The loading, incrementing, and storing of values 
+ * - The loading, incrementing, and storing of values
  * - Jump tests
  *
  * Faults are injected during the trigger_high & trigger_low.

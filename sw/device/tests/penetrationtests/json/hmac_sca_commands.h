@@ -34,8 +34,7 @@ UJSON_SERDE_STRUCT(PenetrationtestHmacScaTriggers, penetrationtest_hmac_sca_trig
 UJSON_SERDE_STRUCT(PenetrationtestHmacScaMessage, penetrationtest_hmac_sca_message_t, HMACSCA_MESSAGE);
 
 #define HMACSCA_KEY(field, string) \
-    field(key, uint8_t, HMACSCA_CMD_MAX_KEY_BYTES) \
-    field(mask, uint8_t, HMACSCA_CMD_MAX_KEY_BYTES)
+    field(key, uint8_t, HMACSCA_CMD_MAX_KEY_BYTES) 
 UJSON_SERDE_STRUCT(PenetrationtestHmacScaKey, penetrationtest_hmac_sca_key_t, HMACSCA_KEY);
 
 #define HMACSCA_TAG(field, string) \

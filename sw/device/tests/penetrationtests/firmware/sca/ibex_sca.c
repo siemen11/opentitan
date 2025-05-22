@@ -68,7 +68,7 @@ typedef enum combi_operations_trigger_t {
   kCombiOpsTriggerMul = 16,
   kCombiOpsTriggerDiv = 32,
   kCombiOpsTriggerLw = 64,
-  kCombiOpsTriggerSw =128,
+  kCombiOpsTriggerSw = 128,
   kCombiOpsTriggerCp = 256,
   kCombiOpsTriggerAes = 512,
   kCombiOpsTriggerHmac = 1024,
