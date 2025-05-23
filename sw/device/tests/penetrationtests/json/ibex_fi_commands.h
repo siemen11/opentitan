@@ -82,6 +82,14 @@ UJSON_SERDE_STRUCT(IbexFiTestResultSram, ibex_fi_test_result_sram_t, IBEXFI_TEST
     field(registers, uint32_t, 32)
 UJSON_SERDE_STRUCT(IbexFiTestResultSram32, ibex_fi_test_result_sram_32_t, IBEXFI_TEST_RESULT_SRAM_32);
 
+#define IBEXFI_FAULTY_SRAM_WRITE_READ_OUTPUT(field, string) \
+    field(err_status, uint32_t) \
+    field(alerts, uint32_t, 3) \
+    field(ast_alerts, uint32_t, 2) \
+    field(memory, uint32_t, 16) \
+    field(registers, uint32_t, 32)
+UJSON_SERDE_STRUCT(IbexFiFaultySramWriteReadOutput, ibex_fi_faulty_sram_write_read_output_t, IBEXFI_FAULTY_SRAM_WRITE_READ_OUTPUT);
+
 #define IBEXFI_TEST_RESULT_REGISTERS(field, string) \
     field(result, uint32_t) \
     field(registers, uint32_t, 32) \
@@ -161,6 +169,7 @@ UJSON_SERDE_STRUCT(IbexFiTestResultCombi1, ibex_fi_test_result_combi_1_t, IBEXFI
     field(loop_counter, uint32_t)\
     field(registers, uint32_t, 13) 
 UJSON_SERDE_STRUCT(IbexFiTestResultCombi2, ibex_fi_test_result_combi_2_t, IBEXFI_TEST_RESULT_COMBI_2);
+
 
 // clang-format on
 
