@@ -743,6 +743,10 @@ status_t handle_ibex_fi_char_addi_single_beq_cm(ujson_t *uj) {
   // Clear the AST recoverable alerts.
   pentest_clear_sensor_recov_alerts();
 
+  // Set the trigger low since previous test might not have called this due to a crash
+  PENTEST_ASM_TRIGGER_LOW;
+  asm volatile(NOP100);
+
   // Initialize x5-x7, x12-x17, and x28-x30 with 0.
   init_regs(0);
   uint32_t res_values[13];
