@@ -3571,7 +3571,6 @@ status_t handle_ibex_fi_char_combi(ujson_t *uj) __attribute__((optnone)) {
   for (int i = 0; i < 10; i++) {
     uj_output_1.registers[i + 2] = res_values[i + 3];
   }
-  RESP_OK(ujson_serialize_ibex_fi_test_result_combi_1_t, uj, &uj_output_1);
 
   //////////////// TEST 2
 
@@ -3620,7 +3619,7 @@ status_t handle_ibex_fi_char_combi(ujson_t *uj) __attribute__((optnone)) {
   for (int i = 0; i < 13; i++) {
     uj_output_2.registers[i] = res_values_2[i];
   }
-  RESP_OK(ujson_serialize_ibex_fi_test_result_combi_2_t, uj, &uj_output_2);
+  
 
   ////////// TEST 3
 
@@ -3678,6 +3677,10 @@ status_t handle_ibex_fi_char_combi(ujson_t *uj) __attribute__((optnone)) {
   memcpy(uj_output_3.alerts, reg_alerts.alerts, sizeof(reg_alerts.alerts));
   memcpy(uj_output_3.ast_alerts, sensor_alerts.alerts,
          sizeof(sensor_alerts.alerts));
+
+  // Send over all responses
+  RESP_OK(ujson_serialize_ibex_fi_test_result_combi_1_t, uj, &uj_output_1);
+  RESP_OK(ujson_serialize_ibex_fi_test_result_combi_2_t, uj, &uj_output_2);
   RESP_OK(ujson_serialize_ibex_fi_test_result_t, uj, &uj_output_3);
 
   return OK_STATUS();

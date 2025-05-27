@@ -170,7 +170,6 @@ UJSON_SERDE_STRUCT(IbexFiTestResultCombi1, ibex_fi_test_result_combi_1_t, IBEXFI
     field(registers, uint32_t, 13) 
 UJSON_SERDE_STRUCT(IbexFiTestResultCombi2, ibex_fi_test_result_combi_2_t, IBEXFI_TEST_RESULT_COMBI_2);
 
-
 // clang-format on
 
 #ifdef __cplusplus

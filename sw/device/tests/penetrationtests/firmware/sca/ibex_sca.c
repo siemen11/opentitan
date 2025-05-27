@@ -795,7 +795,7 @@ status_t handle_ibex_sca_tl_write_batch_random_fix_address(ujson_t *uj) {
 
 void trigger_ibex_sca_combi_operations(uint32_t value1, uint32_t value2,
                                        uint32_t result[12], uint32_t trigger) {
-  memset(result, 0, 12*sizeof(result[0]));
+  memset(result, 0, 12 * sizeof(result[0]));
 
   if (trigger & kCombiOpsTriggerXor) {
     init_registers(value1, value2, 0, 0, 0, 0);
@@ -1033,8 +1033,8 @@ status_t handle_ibex_sca_combi_operations_batch_fvsr(ujson_t *uj) {
 
   // SCA code target.
   for (int it = 0; it < uj_data.num_iterations; it++) {
-    trigger_ibex_sca_combi_operations(values1[it], values2[it], uj_output.result,
-                                               uj_data.trigger);
+    trigger_ibex_sca_combi_operations(values1[it], values2[it],
+                                      uj_output.result, uj_data.trigger);
   }
 
   // Write back last values to validate generated data.
@@ -1052,8 +1052,8 @@ status_t handle_ibex_sca_combi_operations_batch(ujson_t *uj) {
 
   // SCA code target.
   for (int it = 0; it < uj_data.num_iterations; it++) {
-    trigger_ibex_sca_combi_operations(
-        uj_data.fixed_data1, uj_data.fixed_data2, uj_output.result, uj_data.trigger);
+    trigger_ibex_sca_combi_operations(uj_data.fixed_data1, uj_data.fixed_data2,
+                                      uj_output.result, uj_data.trigger);
   }
 
   // Write back last values to validate generated data.
