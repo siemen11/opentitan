@@ -17,6 +17,7 @@ extern "C" {
     value(_, CharSingleBeq) \
     value(_, CharAddiSingleBeq) \
     value(_, CharAddiSingleBeqCm) \
+    value(_, CharAddiSingleBeqCm2) \
     value(_, CharAddiSingleBeqNeg) \
     value(_, CharSingleBne) \
     value(_, CharAddiSingleBne) \
@@ -153,6 +154,13 @@ UJSON_SERDE_STRUCT(IbexFiFaultyAddressesData, ibex_fi_faulty_addresses_data_t, I
     field(alerts, uint32_t, 3) \
     field(ast_alerts, uint32_t, 2)
 UJSON_SERDE_STRUCT(IbexFiFaultyRegData, ibex_fi_faulty_reg_data_t, IBEXFI_FAULTY_REG_DATA);
+
+#define IBEXFI_FAULTY_LIMITED_REG_DATA(field, string) \
+    field(err_status, uint32_t) \
+    field(registers, uint32_t, 10) \
+    field(alerts, uint32_t, 3) \
+    field(ast_alerts, uint32_t, 2)
+UJSON_SERDE_STRUCT(IbexFiFaultyLimitedRegData, ibex_fi_faulty_limited_reg_data_t, IBEXFI_FAULTY_LIMITED_REG_DATA);
 
 #define IBEXFI_FAULTY_ADDRESSES(field, string) \
     field(err_status, uint32_t) \
