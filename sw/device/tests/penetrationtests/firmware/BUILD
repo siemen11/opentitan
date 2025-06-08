@@ -15,6 +15,16 @@ load(
     "opentitan_test",
     "silicon_params",
 )
+load("//rules:const.bzl", "CONST", "hex")
+load("//rules:signing.bzl", "offline_presigning_artifacts", "offline_signature_attach")
+load("//rules:manifest.bzl", "manifest")
+load(
+    "//sw/device/silicon_creator/rom_ext:defs.bzl",
+    "ROM_EXT_VARIATIONS",
+    "ROM_EXT_VERSION",
+    "SLOTS",
+)
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -141,6 +151,7 @@ opentitan_binary(
         "//hw/top_earlgrey:fpga_cw310",
         "//hw/top_earlgrey:fpga_cw340",
         "//hw/top_earlgrey:silicon_owner_sival_rom_ext",
+        "//hw/top_earlgrey:silicon_owner_pixel_rom_ext",
     ],
     deps = FIRMWARE_DEPS_SCA,
 )
@@ -199,4 +210,38 @@ opentitan_test(
         ],
     ),
     deps = FIRMWARE_DEPS_SCA,
+)
+
+manifest(d = {
+    "name": "manifest",
+    "identifier": hex(CONST.ROM_EXT),
+    "version_major": ROM_EXT_VERSION.MAJOR,
+    "version_minor": ROM_EXT_VERSION.MINOR,
+    "security_version": ROM_EXT_VERSION.SECURITY,
+    "visibility": ["//visibility:public"],
+})
+
+offline_presigning_artifacts(
+    name = "chip_pen_test_sca_presigning",
+    testonly = True,
+    srcs = [
+        ":chip_pen_test_sca_silicon_owner_a2_rom_ext",
+    ],
+    # TODO: change to real keys
+    ecdsa_key = {
+        "//sw/device/silicon_creator/rom/keys/fake/ecdsa:test_key_0_ecdsa_p256": "fake_test_key_0",
+    },
+    spx_key = {
+        "//sw/device/silicon_creator/rom/keys/fake/spx:test_key_0_spx": "test_key_0_spx_key",
+    },
+    manifest = ":manifest",
+    tags = ["manual"],
+)
+
+pkg_tar(
+    name = "sca_digest",
+    testonly = True,
+    srcs = [":chip_pen_test_sca_presigning"],
+    mode = "0644",
+    tags = ["manual"],
 )
