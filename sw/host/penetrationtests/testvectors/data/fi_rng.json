@@ -2,7 +2,7 @@
   {
     "test_case_id": 1,
     "command": "CsrngInit",
-    "input": "{\"icache_disable\": true,\"dummy_instr_disable\": true,\"enable_jittery_clock\": false,\"enable_sram_readback\": false}",
+    "input": "{\"icache_disable\": true,\"dummy_instr_disable\": false,\"dummy_instr_count\": 3,\"enable_jittery_clock\": false,\"enable_sram_readback\": false}",
     "expected_output": [
       "{\"device_id\":[0,0,0,0,0,0,0,0],\"clock_jitter_locked\":false,\"clock_jitter_en\":false,\"sram_main_readback_locked\":false,\"sram_main_readback_en\":false,\"sram_ret_readback_locked\":false,\"sram_ret_readback_en\":false}",
       "{\"config_version\":1,\"sram_exec_mode\":0,\"ownership_key_alg\":0,\"update_mode\":0,\"min_security_version_bl0\":0,\"lock_constraint\":0}",

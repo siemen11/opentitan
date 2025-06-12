@@ -478,11 +478,12 @@ status_t handle_kmac_pentest_init(ujson_t *uj) {
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;
   TRY(pentest_configure_cpu(
-      uj_cpuctrl.icache_disable, uj_cpuctrl.dummy_instr_disable,
-      uj_cpuctrl.enable_jittery_clock, uj_cpuctrl.enable_sram_readback,
-      &uj_output.clock_jitter_locked, &uj_output.clock_jitter_en,
-      &uj_output.sram_main_readback_locked, &uj_output.sram_ret_readback_locked,
-      &uj_output.sram_main_readback_en, &uj_output.sram_ret_readback_en));
+      uj_data.icache_disable, uj_data.dummy_instr_disable,
+      uj_data.dummy_instr_count, uj_data.enable_jittery_clock,
+      uj_data.enable_sram_readback, &uj_output.clock_jitter_locked,
+      &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
+      &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
+      &uj_output.sram_ret_readback_en));
 
   // Read device ID and return to host.
   TRY(pentest_read_device_id(uj_output.device_id));
