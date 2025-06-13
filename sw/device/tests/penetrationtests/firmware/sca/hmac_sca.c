@@ -102,8 +102,8 @@ static status_t trigger_hmac(uint8_t key_buf[], uint8_t msg_buf[],
 status_t handle_hmac_pentest_init(ujson_t *uj) {
   penetrationtest_cpuctrl_t uj_cpuctrl_data;
   TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
-  penetrationtest_alert_config_t uj_alert_data;
-  TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
+  penetrationtest_sensor_config_t uj_sensor_data;
+  TRY(ujson_deserialize_penetrationtest_sensor_config_t(uj, &uj_sensor_data));
 
   // Setup trigger and enable peripherals needed for the test.
   pentest_select_trigger_type(kPentestTriggerTypeSw);
@@ -114,8 +114,8 @@ status_t handle_hmac_pentest_init(ujson_t *uj) {
                    kPentestPeripheralOtbn | kPentestPeripheralCsrng |
                    kPentestPeripheralEdn | kPentestPeripheralHmac |
                    kPentestPeripheralKmac,
-               uj_alert_data.sensor_ctrl_enable,
-               uj_alert_data.sensor_ctrl_en_fatal);
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Disable the instruction cache and dummy instructions for SCA.
   penetrationtest_device_info_t uj_output;

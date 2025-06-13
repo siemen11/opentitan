@@ -45,7 +45,7 @@ struct ScaSha3TestCase {
     #[serde(default)]
     status: String,
     #[serde(default)]
-    alerts: String,
+    sensors: String,
     #[serde(default)]
     expected_output: Vec<String>,
 }
@@ -80,10 +80,10 @@ fn run_sca_sha3_testcase(
         input.send(uart)?;
     }
 
-    // Check if we need to send alert info.
-    if !test_case.alerts.is_empty() {
-        let alerts: serde_json::Value = serde_json::from_str(test_case.alerts.as_str()).unwrap();
-        alerts.send(uart)?;
+    // Check if we need to send sensor info.
+    if !test_case.sensors.is_empty() {
+        let sensors: serde_json::Value = serde_json::from_str(test_case.sensors.as_str()).unwrap();
+        sensors.send(uart)?;
     }
 
     if !test_case.status.is_empty() {

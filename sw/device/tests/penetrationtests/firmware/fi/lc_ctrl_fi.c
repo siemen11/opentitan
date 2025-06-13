@@ -21,6 +21,8 @@ static dif_lc_ctrl_t lc;
 status_t handle_lc_ctrl_fi_init(ujson_t *uj) {
   penetrationtest_cpuctrl_t uj_cpuctrl_data;
   TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
+  penetrationtest_sensor_config_t uj_sensor_data;
+  TRY(ujson_deserialize_penetrationtest_sensor_config_t(uj, &uj_sensor_data));
   penetrationtest_alert_config_t uj_alert_data;
   TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
@@ -30,8 +32,8 @@ status_t handle_lc_ctrl_fi_init(ujson_t *uj) {
   // placeholder.
   pentest_init(kPentestTriggerSourceAes,
                kPentestPeripheralIoDiv4 | kPentestPeripheralCsrng,
-               uj_alert_data.sensor_ctrl_enable,
-               uj_alert_data.sensor_ctrl_en_fatal);
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;
@@ -54,7 +56,10 @@ status_t handle_lc_ctrl_fi_init(ujson_t *uj) {
 
   // Configure the alert handler. Alerts triggered by IP blocks are captured
   // and reported to the test.
-  pentest_configure_alert_handler();
+  pentest_configure_alert_handler(
+      uj_alert_data.alert_classes, uj_alert_data.accumulation_threshold,
+      uj_alert_data.signals, uj_alert_data.duration_cycles,
+      uj_alert_data.ping_timeout);
 
   // Read device ID and return to host.
   TRY(pentest_read_device_id(uj_output.device_id));

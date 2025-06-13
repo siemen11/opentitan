@@ -3823,6 +3823,8 @@ status_t handle_ibex_fi_char_unrolled_reg_op_loop_chain(ujson_t *uj)
 status_t handle_ibex_fi_init(ujson_t *uj) {
   penetrationtest_cpuctrl_t uj_cpuctrl_data;
   TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
+  penetrationtest_sensor_config_t uj_sensor_data;
+  TRY(ujson_deserialize_penetrationtest_sensor_config_t(uj, &uj_sensor_data));
   penetrationtest_alert_config_t uj_alert_data;
   TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
@@ -3835,12 +3837,15 @@ status_t handle_ibex_fi_init(ujson_t *uj) {
                    kPentestPeripheralCsrng | kPentestPeripheralEntropy |
                    kPentestPeripheralAes | kPentestPeripheralHmac |
                    kPentestPeripheralKmac | kPentestPeripheralOtbn,
-               uj_alert_data.sensor_ctrl_enable,
-               uj_alert_data.sensor_ctrl_en_fatal);
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Configure the alert handler. Alerts triggered by IP blocks are captured
   // and reported to the test.
-  pentest_configure_alert_handler();
+  pentest_configure_alert_handler(
+      uj_alert_data.alert_classes, uj_alert_data.accumulation_threshold,
+      uj_alert_data.signals, uj_alert_data.duration_cycles,
+      uj_alert_data.ping_timeout);
 
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;

@@ -455,16 +455,16 @@ status_t handle_kmac_pentest_init(ujson_t *uj) {
 
   penetrationtest_cpuctrl_t uj_cpuctrl_data;
   TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
-  penetrationtest_alert_config_t uj_alert_data;
-  TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
+  penetrationtest_sensor_config_t uj_sensor_data;
+  TRY(ujson_deserialize_penetrationtest_sensor_config_t(uj, &uj_sensor_data));
 
   // Setup the trigger.
   pentest_init(kPentestTriggerSourceKmac,
                kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
                    kPentestPeripheralCsrng | kPentestPeripheralEdn |
                    kPentestPeripheralIoDiv4 | kPentestPeripheralKmac,
-               uj_alert_data.sensor_ctrl_enable,
-               uj_alert_data.sensor_ctrl_en_fatal);
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
   TRY(dif_kmac_init(mmio_region_from_addr(TOP_EARLGREY_KMAC_BASE_ADDR), &kmac));
 
   dif_kmac_config_t config = (dif_kmac_config_t){
