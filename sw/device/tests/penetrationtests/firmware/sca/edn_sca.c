@@ -122,14 +122,6 @@ status_t handle_edn_sca_init(ujson_t *uj) {
   TRY(ujson_deserialize_penetrationtest_sensor_config_t(uj, &uj_sensor_data));
 
   pentest_select_trigger_type(kPentestTriggerTypeSw);
-  // As we are using the software defined trigger, the first argument of
-  // sca_init is not needed. kPentestTriggerSourceAes is selected as a
-  // placeholder.
-  pentest_init(kPentestTriggerSourceAes,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralEntropy |
-                   kPentestPeripheralCsrng | kPentestPeripheralEdn,
-               uj_sensor_data.sensor_ctrl_enable,
-               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Disable the instruction cache and dummy instructions for SCA attacks.
   penetrationtest_device_info_t uj_output;
@@ -140,6 +132,15 @@ status_t handle_edn_sca_init(ujson_t *uj) {
       &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
       &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
       &uj_output.sram_ret_readback_en));
+
+  // As we are using the software defined trigger, the first argument of
+  // sca_init is not needed. kPentestTriggerSourceAes is selected as a
+  // placeholder.
+  pentest_init(kPentestTriggerSourceAes,
+               kPentestPeripheralIoDiv4 | kPentestPeripheralEntropy |
+                   kPentestPeripheralCsrng | kPentestPeripheralEdn,
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Configure Ibex to allow reading ERR_STATUS register.
   TRY(dif_rv_core_ibex_init(

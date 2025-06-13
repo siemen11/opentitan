@@ -479,14 +479,6 @@ status_t handle_otbn_pentest_init(ujson_t *uj) {
   // to avoid a non-constant trigger window.
   TRY(pentest_configure_entropy_source_max_reseed_interval());
 
-  pentest_init(kPentestTriggerSourceOtbn,
-               kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
-                   kPentestPeripheralOtbn | kPentestPeripheralCsrng |
-                   kPentestPeripheralEdn | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac,
-               uj_sensor_data.sensor_ctrl_enable,
-               uj_sensor_data.sensor_ctrl_en_fatal);
-
   // Init the OTBN core.
   TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));
 
@@ -504,6 +496,13 @@ status_t handle_otbn_pentest_init(ujson_t *uj) {
       &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
       &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
       &uj_output.sram_ret_readback_en));
+
+  pentest_init(kPentestTriggerSourceOtbn,
+               kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
+                   kPentestPeripheralOtbn | kPentestPeripheralCsrng |
+                   kPentestPeripheralEdn,
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Read device ID and return to host.
   TRY(pentest_read_device_id(uj_output.device_id));

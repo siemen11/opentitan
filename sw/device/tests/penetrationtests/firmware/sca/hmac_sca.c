@@ -107,15 +107,6 @@ status_t handle_hmac_pentest_init(ujson_t *uj) {
 
   // Setup trigger and enable peripherals needed for the test.
   pentest_select_trigger_type(kPentestTriggerTypeSw);
-  // Enable the HMAC module and disable unused IP blocks to improve
-  // SCA measurements.
-  pentest_init(kPentestTriggerSourceHmac,
-               kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
-                   kPentestPeripheralOtbn | kPentestPeripheralCsrng |
-                   kPentestPeripheralEdn | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac,
-               uj_sensor_data.sensor_ctrl_enable,
-               uj_sensor_data.sensor_ctrl_en_fatal);
 
   // Disable the instruction cache and dummy instructions for SCA.
   penetrationtest_device_info_t uj_output;
@@ -126,6 +117,13 @@ status_t handle_hmac_pentest_init(ujson_t *uj) {
       &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
       &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
       &uj_output.sram_ret_readback_en));
+
+  // Enable the HMAC module and disable unused IP blocks to improve
+  // SCA measurements.
+  pentest_init(kPentestTriggerSourceHmac,
+               kPentestPeripheralIoDiv4 | kPentestPeripheralHmac,
+               uj_sensor_data.sensor_ctrl_enable,
+               uj_sensor_data.sensor_ctrl_en_fatal);
 
   mmio_region_t base_addr = mmio_region_from_addr(TOP_EARLGREY_HMAC_BASE_ADDR);
   TRY(dif_hmac_init(base_addr, &hmac));
