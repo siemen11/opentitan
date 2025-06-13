@@ -599,7 +599,9 @@ status_t handle_sha3_pentest_init(ujson_t *uj) {
   TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
   pentest_init(kPentestTriggerSourceKmac,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralKmac, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+               kPentestPeripheralIoDiv4 | kPentestPeripheralKmac,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   TRY(dif_kmac_init(mmio_region_from_addr(TOP_EARLGREY_KMAC_BASE_ADDR), &kmac));
 

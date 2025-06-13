@@ -607,7 +607,9 @@ status_t handle_aes_pentest_init(ujson_t *uj) {
   TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
   pentest_init(kPentestTriggerSourceAes,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralAes, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+               kPentestPeripheralIoDiv4 | kPentestPeripheralAes,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   if (dif_aes_init(mmio_region_from_addr(TOP_EARLGREY_AES_BASE_ADDR), &aes) !=
       kDifOk) {

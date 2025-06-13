@@ -1239,7 +1239,9 @@ status_t handle_otbn_fi_init(ujson_t *uj) {
                kPentestPeripheralIoDiv4 | kPentestPeripheralEdn |
                    kPentestPeripheralCsrng | kPentestPeripheralEntropy |
                    kPentestPeripheralAes | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac | kPentestPeripheralOtbn, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralKmac | kPentestPeripheralOtbn,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Configure Ibex to allow reading ERR_STATUS register.
   TRY(dif_rv_core_ibex_init(

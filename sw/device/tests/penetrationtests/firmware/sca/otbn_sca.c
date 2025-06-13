@@ -483,7 +483,9 @@ status_t handle_otbn_pentest_init(ujson_t *uj) {
                kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
                    kPentestPeripheralOtbn | kPentestPeripheralCsrng |
                    kPentestPeripheralEdn | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralKmac,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Init the OTBN core.
   TRY(dif_otbn_init(mmio_region_from_addr(TOP_EARLGREY_OTBN_BASE_ADDR), &otbn));

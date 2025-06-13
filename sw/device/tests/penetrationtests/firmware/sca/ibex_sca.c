@@ -146,7 +146,9 @@ status_t handle_ibex_pentest_init(ujson_t *uj) {
                kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
                    kPentestPeripheralOtbn | kPentestPeripheralCsrng |
                    kPentestPeripheralEdn | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac | kPentestPeripheralAes, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralKmac | kPentestPeripheralAes,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Disable the instruction cache and dummy instructions for SCA.
   penetrationtest_device_info_t uj_output;

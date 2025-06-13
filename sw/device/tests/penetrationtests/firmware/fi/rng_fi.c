@@ -397,7 +397,9 @@ status_t handle_rng_fi_edn_init(ujson_t *uj) {
   // placeholder.
   pentest_init(kPentestTriggerSourceAes,
                kPentestPeripheralIoDiv4 | kPentestPeripheralEntropy |
-                   kPentestPeripheralCsrng | kPentestPeripheralEdn, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralCsrng | kPentestPeripheralEdn,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;
@@ -618,7 +620,9 @@ status_t handle_rng_fi_csrng_init(ujson_t *uj) {
   // pentest_init is not needed. kPentestTriggerSourceAes is selected as a
   // placeholder.
   pentest_init(kPentestTriggerSourceAes,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralCsrng, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+               kPentestPeripheralIoDiv4 | kPentestPeripheralCsrng,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;

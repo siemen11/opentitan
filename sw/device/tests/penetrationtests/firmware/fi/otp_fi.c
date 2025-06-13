@@ -151,7 +151,9 @@ status_t handle_otp_fi_init(ujson_t *uj) {
                kPentestPeripheralIoDiv4 | kPentestPeripheralEdn |
                    kPentestPeripheralCsrng | kPentestPeripheralEntropy |
                    kPentestPeripheralAes | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac | kPentestPeripheralOtbn, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralKmac | kPentestPeripheralOtbn,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Configure the alert handler. Alerts triggered by IP blocks are captured
   // and reported to the test.

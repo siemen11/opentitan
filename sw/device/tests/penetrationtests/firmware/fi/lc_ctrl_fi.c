@@ -29,7 +29,9 @@ status_t handle_lc_ctrl_fi_init(ujson_t *uj) {
   // pentest_init is not needed. kPentestTriggerSourceAes is selected as a
   // placeholder.
   pentest_init(kPentestTriggerSourceAes,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralCsrng, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+               kPentestPeripheralIoDiv4 | kPentestPeripheralCsrng,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;

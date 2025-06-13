@@ -127,7 +127,9 @@ status_t handle_edn_sca_init(ujson_t *uj) {
   // placeholder.
   pentest_init(kPentestTriggerSourceAes,
                kPentestPeripheralIoDiv4 | kPentestPeripheralEntropy |
-                   kPentestPeripheralCsrng | kPentestPeripheralEdn, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralCsrng | kPentestPeripheralEdn,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
 
   // Disable the instruction cache and dummy instructions for SCA attacks.
   penetrationtest_device_info_t uj_output;

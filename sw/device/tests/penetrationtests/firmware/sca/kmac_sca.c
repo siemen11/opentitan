@@ -461,8 +461,10 @@ status_t handle_kmac_pentest_init(ujson_t *uj) {
   // Setup the trigger.
   pentest_init(kPentestTriggerSourceKmac,
                kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
-                   kPentestPeripheralCsrng |
-                   kPentestPeripheralEdn |  kPentestPeripheralIoDiv4 | kPentestPeripheralKmac, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralCsrng | kPentestPeripheralEdn |
+                   kPentestPeripheralIoDiv4 | kPentestPeripheralKmac,
+               uj_alert_data.sensor_ctrl_enable,
+               uj_alert_data.sensor_ctrl_en_fatal);
   TRY(dif_kmac_init(mmio_region_from_addr(TOP_EARLGREY_KMAC_BASE_ADDR), &kmac));
 
   dif_kmac_config_t config = (dif_kmac_config_t){
