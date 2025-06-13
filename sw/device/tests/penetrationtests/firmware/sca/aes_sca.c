@@ -601,11 +601,13 @@ status_t handle_aes_pentest_init(ujson_t *uj) {
     fpga_mode = true;
   }
 
-  penetrationtest_cpuctrl_t uj_cpuctrl;
-  TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl));
+  penetrationtest_cpuctrl_t uj_cpuctrl_data;
+  TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
+  penetrationtest_alert_config_t uj_alert_data;
+  TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
   pentest_init(kPentestTriggerSourceAes,
-               kPentestPeripheralIoDiv4 | kPentestPeripheralAes);
+               kPentestPeripheralIoDiv4 | kPentestPeripheralAes, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
 
   if (dif_aes_init(mmio_region_from_addr(TOP_EARLGREY_AES_BASE_ADDR), &aes) !=
       kDifOk) {
@@ -619,9 +621,9 @@ status_t handle_aes_pentest_init(ujson_t *uj) {
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;
   TRY(pentest_configure_cpu(
-      uj_data.icache_disable, uj_data.dummy_instr_disable,
-      uj_data.dummy_instr_count, uj_data.enable_jittery_clock,
-      uj_data.enable_sram_readback, &uj_output.clock_jitter_locked,
+      uj_cpuctrl_data.icache_disable, uj_cpuctrl_data.dummy_instr_disable,
+      uj_cpuctrl_data.dummy_instr_count, uj_cpuctrl_data.enable_jittery_clock,
+      uj_cpuctrl_data.enable_sram_readback, &uj_output.clock_jitter_locked,
       &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
       &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
       &uj_output.sram_ret_readback_en));

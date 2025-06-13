@@ -135,8 +135,10 @@ static void generate_random(size_t num_iterations, uint32_t values[]) {
 }
 
 status_t handle_ibex_pentest_init(ujson_t *uj) {
-  penetrationtest_cpuctrl_t uj_data;
-  TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_data));
+  penetrationtest_cpuctrl_t uj_cpuctrl_data;
+  TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
+  penetrationtest_alert_config_t uj_alert_data;
+  TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
   // Setup trigger and enable peripherals needed for the test.
   pentest_select_trigger_type(kPentestTriggerTypeSw);
@@ -144,14 +146,14 @@ status_t handle_ibex_pentest_init(ujson_t *uj) {
                kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
                    kPentestPeripheralOtbn | kPentestPeripheralCsrng |
                    kPentestPeripheralEdn | kPentestPeripheralHmac |
-                   kPentestPeripheralKmac | kPentestPeripheralAes);
+                   kPentestPeripheralKmac | kPentestPeripheralAes, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
 
   // Disable the instruction cache and dummy instructions for SCA.
   penetrationtest_device_info_t uj_output;
   TRY(pentest_configure_cpu(
-      uj_data.icache_disable, uj_data.dummy_instr_disable,
-      uj_data.dummy_instr_count, uj_data.enable_jittery_clock,
-      uj_data.enable_sram_readback, &uj_output.clock_jitter_locked,
+      uj_cpuctrl_data.icache_disable, uj_cpuctrl_data.dummy_instr_disable,
+      uj_cpuctrl_data.dummy_instr_count, uj_cpuctrl_data.enable_jittery_clock,
+      uj_cpuctrl_data.enable_sram_readback, &uj_output.clock_jitter_locked,
       &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
       &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
       &uj_output.sram_ret_readback_en));

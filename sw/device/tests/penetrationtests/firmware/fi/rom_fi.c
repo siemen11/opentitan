@@ -74,14 +74,16 @@ status_t handle_rom_read(ujson_t *uj) {
 }
 
 status_t handle_rom_fi_init(ujson_t *uj) {
-  penetrationtest_cpuctrl_t uj_data;
-  TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_data));
+  penetrationtest_cpuctrl_t uj_cpuctrl_data;
+  TRY(ujson_deserialize_penetrationtest_cpuctrl_t(uj, &uj_cpuctrl_data));
+  penetrationtest_alert_config_t uj_alert_data;
+  TRY(ujson_deserialize_penetrationtest_alert_config_t(uj, &uj_alert_data));
 
   pentest_select_trigger_type(kPentestTriggerTypeSw);
   pentest_init(kPentestTriggerSourceAes,
                kPentestPeripheralIoDiv4 | kPentestPeripheralEdn |
                    kPentestPeripheralCsrng | kPentestPeripheralEntropy |
-                   kPentestPeripheralKmac);
+                   kPentestPeripheralKmac, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
 
   // Configure the alert handler. Alerts triggered by IP blocks are captured
   // and reported to the test.
@@ -90,9 +92,9 @@ status_t handle_rom_fi_init(ujson_t *uj) {
   // Configure the CPU for the pentest.
   penetrationtest_device_info_t uj_output;
   TRY(pentest_configure_cpu(
-      uj_data.icache_disable, uj_data.dummy_instr_disable,
-      uj_data.dummy_instr_count, uj_data.enable_jittery_clock,
-      uj_data.enable_sram_readback, &uj_output.clock_jitter_locked,
+      uj_cpuctrl_data.icache_disable, uj_cpuctrl_data.dummy_instr_disable,
+      uj_cpuctrl_data.dummy_instr_count, uj_cpuctrl_data.enable_jittery_clock,
+      uj_cpuctrl_data.enable_sram_readback, &uj_output.clock_jitter_locked,
       &uj_output.clock_jitter_en, &uj_output.sram_main_readback_locked,
       &uj_output.sram_ret_readback_locked, &uj_output.sram_main_readback_en,
       &uj_output.sram_ret_readback_en));

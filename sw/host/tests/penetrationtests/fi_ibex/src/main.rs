@@ -41,6 +41,8 @@ struct FiIbexTestCase {
     // Input only needed for the "Init" subcommand.
     #[serde(default)]
     input: String,
+    #[serde(default)]
+    alerts: String,
     expected_output: Vec<String>,
 }
 
@@ -76,6 +78,12 @@ fn run_fi_ibex_testcase(
     if !test_case.input.is_empty() {
         let input: serde_json::Value = serde_json::from_str(test_case.input.as_str()).unwrap();
         input.send(uart)?;
+    }
+
+    // Check if we need to send alert info.
+    if !test_case.alerts.is_empty() {
+        let alerts: serde_json::Value = serde_json::from_str(test_case.alerts.as_str()).unwrap();
+        alerts.send(uart)?;
     }
 
     // Check test outputs

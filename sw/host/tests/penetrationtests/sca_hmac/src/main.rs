@@ -43,6 +43,8 @@ struct ScaHmacTestCase {
     #[serde(default)]
     key: String,
     #[serde(default)]
+    alerts: String,
+    #[serde(default)]
     triggers: String,
     expected_output: Vec<String>,
 }
@@ -69,6 +71,12 @@ fn run_sca_hmac_testcase(
     if !test_case.key.is_empty() {
         let key: serde_json::Value = serde_json::from_str(test_case.key.as_str()).unwrap();
         key.send(uart)?;
+    }
+
+    // Check if we need to send alert info.
+    if !test_case.alerts.is_empty() {
+        let alerts: serde_json::Value = serde_json::from_str(test_case.alerts.as_str()).unwrap();
+        alerts.send(uart)?;
     }
 
     if !test_case.input.is_empty() {
