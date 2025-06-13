@@ -112,7 +112,8 @@ status_t handle_hmac_pentest_init(ujson_t *uj) {
   pentest_init(kPentestTriggerSourceHmac,
                kPentestPeripheralEntropy | kPentestPeripheralIoDiv4 |
                    kPentestPeripheralOtbn | kPentestPeripheralCsrng |
-                   kPentestPeripheralEdn | kPentestPeripheralHmac, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
+                   kPentestPeripheralEdn | kPentestPeripheralHmac  |
+                   kPentestPeripheralKmac, dif_bool_to_toggle(uj_alert_data.sensor_ctrl_enable));
 
   // Disable the instruction cache and dummy instructions for SCA.
   penetrationtest_device_info_t uj_output;
