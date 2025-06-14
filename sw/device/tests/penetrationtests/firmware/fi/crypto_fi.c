@@ -314,6 +314,12 @@ status_t handle_crypto_fi_init(ujson_t *uj) {
   TRY(pentest_read_device_id(uj_output.device_id));
   RESP_OK(ujson_serialize_penetrationtest_device_info_t, uj, &uj_output);
 
+  // Read the sensor config.
+  TRY(pentest_send_sensor_config(uj));
+
+  // Read the alert config.
+  TRY(pentest_send_alert_config(uj));
+
   // Read different SKU config fields and return to host.
   TRY(pentest_send_sku_config(uj));
 
