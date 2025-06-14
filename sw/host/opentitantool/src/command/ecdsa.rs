@@ -292,6 +292,28 @@ impl CommandDispatch for EcdsaVerifyCommand {
     }
 }
 
+#[derive(Debug, Args)]
+pub struct EcdsaSigConvertCommand {
+    /// Signature file in the standard der format, form openssl or other standard tools
+    der_signature_file_in: PathBuf,
+    /// Output file to write signature in the format used by OpenTitan.
+    raw_signature_file_out: PathBuf,
+}
+
+impl CommandDispatch for EcdsaSigConvertCommand {
+    fn run(
+        &self,
+        _context: &dyn Any,
+        _transport: &TransportWrapper,
+    ) -> Result<Option<Box<dyn erased_serde::Serialize>>> {
+        let signature = EcdsaRawSignature::from_der(&std::fs::read(&self.der_signature_file_in)?)?;
+        let mut file = File::create(&self.raw_signature_file_out)?;
+        signature.write(&mut file)?;
+
+        Ok(None)
+    }
+}
+
 #[derive(Debug, Subcommand, CommandDispatch)]
 /// ECDSA commands.
 pub enum Ecdsa {
@@ -299,4 +321,5 @@ pub enum Ecdsa {
     Key(EcdsaKeySubcommands),
     Sign(EcdsaSignCommand),
     Verify(EcdsaVerifyCommand),
+    ConvertSig(EcdsaSigConvertCommand),
 }

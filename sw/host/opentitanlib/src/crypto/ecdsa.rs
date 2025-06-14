@@ -171,7 +171,7 @@ impl EcdsaRawSignature {
         self.r.iter().all(|&v| v == 0) && self.s.iter().all(|&v| v == 0)
     }
 
-    fn from_der(data: &[u8]) -> Result<EcdsaRawSignature> {
+    pub fn from_der(data: &[u8]) -> Result<EcdsaRawSignature> {
         let sig = Signature::<NistP256>::from_der(data).with_context(|| "Failed to parse DER")?;
 
         // R and S are integers in big endian format. The size of the numbers is
