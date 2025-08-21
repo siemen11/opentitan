@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load(":pentest.bzl", "pentest_cryptolib_fi_asym", "pentest_cryptolib_fi_sym", "pentest_cryptolib_sca_asym", "pentest_cryptolib_sca_sym", "pentest_fi", "pentest_fi_ibex", "pentest_fi_otbn", "pentest_sca")
+load(":pentest.bzl", "pentest_cryptolib_fi_asym", "pentest_cryptolib_fi_sym", "pentest_cryptolib_sca_asym", "pentest_cryptolib_sca_sym", "pentest_fi", "pentest_fi_ibex", "pentest_fi_otbn", "pentest_sca", "py_opentitan_test")
+load("@ot_python_deps//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -310,4 +311,241 @@ pentest_cryptolib_sca_asym(
     test_args = CRYPTOLIB_SCA_ASYM_TESTVECTOR_ARGS,
     test_harness = "//sw/host/tests/penetrationtests/sca_asym_cryptolib:harness",
     test_vectors = CRYPTOLIB_SCA_ASYM_TESTVECTOR_TARGETS,
+)
+
+py_opentitan_test(
+    name = "sca_ibex_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/sca:sca_ibex_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_sca",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/sca:sca_ibex_commands",
+        "//sw/host/penetrationtests/python/sca:sca_ibex_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+    ],
+)
+
+py_opentitan_test(
+    name = "sca_aes_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/sca:sca_aes_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_sca",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/sca:sca_aes_commands",
+        "//sw/host/penetrationtests/python/sca:sca_aes_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+    ],
+)
+
+py_opentitan_test(
+    name = "sca_hmac_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/sca:sca_hmac_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_sca",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/sca:sca_hmac_commands",
+        "//sw/host/penetrationtests/python/sca:sca_hmac_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+    ],
+)
+
+py_opentitan_test(
+    name = "sca_kmac_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/sca:sca_kmac_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_sca",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/sca:sca_kmac_commands",
+        "//sw/host/penetrationtests/python/sca:sca_kmac_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+    ],
+)
+
+py_opentitan_test(
+    name = "sca_otbn_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/sca:sca_otbn_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_sca",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/sca:sca_otbn_commands",
+        "//sw/host/penetrationtests/python/sca:sca_otbn_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+    ],
+)
+
+py_opentitan_test(
+    name = "sca_sha3_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/sca:sca_sha3_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_sca",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/sca:sca_sha3_commands",
+        "//sw/host/penetrationtests/python/sca:sca_sha3_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_ibex_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_ibex_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi_ibex",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_ibex_commands",
+        "//sw/host/penetrationtests/python/target:common_library",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_crypto_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_crypto_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_crypto_functions",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+        requirement("pycryptodome"),
+        "//sw/host/penetrationtests/python/target:common_library",
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_otbn_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_otbn_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi_otbn",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_otbn_commands",
+        "//sw/host/penetrationtests/python/fi:fi_otbn_functions",
+        "//sw/host/penetrationtests/python/target:common_library",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_otp_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_otp_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_otp_commands",
+        "//sw/host/penetrationtests/python/fi:fi_otp_functions",
+        "//sw/host/penetrationtests/python/target:common_library",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_rom_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_rom_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_rom_commands",
+        "//sw/host/penetrationtests/python/fi:fi_rom_functions",
+        "//sw/host/penetrationtests/python/target:common_library",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_alert_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_alert_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi",
+        "//sw/host/opentitantool",
+    ],
+    tags = [
+        "manual",
+        "skip_in_ci",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_alert_commands",
+        "//sw/host/penetrationtests/python/fi:fi_alert_functions",
+        "//sw/host/penetrationtests/python/target:common_library",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_opentitan_test(
+    name = "fi_rng_test",
+    testonly = True,
+    srcs = ["//sw/host/penetrationtests/python/fi:fi_rng_test_script"],
+    data = [
+        "//sw/device/tests/penetrationtests/firmware:pen_test_fi",
+        "//sw/host/opentitantool",
+    ],
+    deps = [
+        "//sw/host/penetrationtests/python/fi:fi_rng_commands",
+        "//sw/host/penetrationtests/python/fi:fi_rng_functions",
+        "//sw/host/penetrationtests/python/target:common_library",
+        "//sw/host/penetrationtests/python/target:targets",
+        "//sw/host/penetrationtests/python/util:utils",
+        "@rules_python//python/runfiles",
+    ],
 )
