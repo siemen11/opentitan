@@ -48,14 +48,28 @@ class HyperDebug:
         if self.openocd:
             self.start_openocd(print_output=print_output)
 
+    def clear_bitstream(self, delay=2, print_output=True):
+        command = (
+            [self.opentitantool] +
+            self.tool_args +
+            ["--exec", "transport init", "--exec", "fpga clear-bitstream", "no-op"]
+        )
+        try:
+            run(command, check=True, capture_output=True, text=True)
+            time.sleep(delay)
+            print("Info: FPGA cleared.")
+        except CalledProcessError as e:
+            print(f"Error: Failed to clear the bitstream.\nStderr: {e.stderr}", file=sys.stderr)
+            raise
+
     def program_bitstream(self, bitstream, program_delay=2, print_output=True):
         if not bitstream:
             return
 
         command = (
-            [self.opentitantool] +
-            self.tool_args +
-            ["--exec", "transport init", "--exec", f"fpga load-bitstream {bitstream}", "no-op"]
+            [self.opentitantool]
+            + self.tool_args
+            + ["--exec", "transport init", "--exec", f"fpga load-bitstream {bitstream}", "no-op"]
         )
         try:
             result = run(command, check=True, capture_output=True, text=True)
@@ -69,9 +83,9 @@ class HyperDebug:
 
     def flash_target(self, firmware, boot_delay=2, print_output=True):
         command = (
-            [self.opentitantool] +
-            self.tool_args +
-            ["--exec", "transport init", "--exec", f"bootstrap {firmware}", "no-op"]
+            [self.opentitantool]
+            + self.tool_args
+            + ["--exec", "transport init", "--exec", f"bootstrap {firmware}", "no-op"]
         )
         try:
             run(command, check=True, capture_output=True)
@@ -100,9 +114,9 @@ class HyperDebug:
     def set_tap_straps(self):
         """Sets the tap straps on a RMA ROM."""
         tap_process = (
-            [self.opentitantool] +
-            self.tool_args +
-            [
+            [self.opentitantool]
+            + self.tool_args
+            + [
                 "--exec",
                 "gpio write TAP_STRAP0 false",
                 "--exec",
@@ -131,7 +145,7 @@ class HyperDebug:
         # 4444 for telnet connections
         # 3333 for gdb connections
         # You can adapt those ports, e.g., via adding the config: -c "telnet_port 4444"
-        OPENOCD_COMMANDS = "adapter speed 500; transport select jtag; reset_config trst_only"
+        OPENOCD_COMMANDS = "telnet_port 4445; adapter speed 500; transport select jtag; reset_config trst_only"
 
         self.set_tap_straps()
 
@@ -218,7 +232,7 @@ class HyperDebug:
                 if not chunk:
                     break
                 response += chunk
-                if b"\x00" in chunk:
+                if b"\x1a" in chunk:
                     break
 
         except socket.timeout:
@@ -247,9 +261,9 @@ class HyperDebug:
     def reset_target(self, com_reset=False, reset_delay=0.005):
         """Resets the target."""
         reset_process = (
-            [self.opentitantool] +
-            self.tool_args +
-            [
+            [self.opentitantool]
+            + self.tool_args
+            + [
                 "--exec",
                 "transport init",
                 "--exec",
