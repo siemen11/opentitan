@@ -12,7 +12,7 @@
 #include "sw/device/silicon_creator/lib/drivers/rstmgr.h"
 #include "sw/device/silicon_creator/lib/manifest_def.h"
 
-#include "hw/top/otp_ctrl_regs.h"
+#include "otp_ctrl_regs.h"
 
 OTTF_DEFINE_TEST_CONFIG();
 
@@ -21,7 +21,7 @@ bool test_main(void) {
   RETURN_IF_ERROR(boot_data_read(lifecycle_state_get(), &boot_data));
   ++boot_data.min_security_version_bl0;
   RETURN_IF_ERROR(boot_data_write(&boot_data));
-  rstmgr_reset();
-  OT_UNREACHABLE();
+  LOG_INFO("Boot data written, bl0 version %u\n",
+           boot_data.min_security_version_bl0);
   return true;
 }

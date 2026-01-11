@@ -71,7 +71,7 @@ class IterationTimeout:
 
 def read_uart_output():
     # Read the output from the chip
-    response = target.read_all(max_tries=100)
+    response = target.read_all(max_tries=2000)
     return response
 
 
@@ -89,7 +89,7 @@ def re_initialize(gdb, jump_address, print_output=False):
     # Close everything
     gdb.close_gdb()
     target.close_openocd()
-    target.clear_bitstream(print_output=print_output)
+    target.clear_bitstream()
 
     # Initialize the high security version
     target.target.program_bitstream(bitstream_path, print_output=print_output)
@@ -274,7 +274,8 @@ class RomExtFiSimRollbackFlash(unittest.TestCase):
                                         print("-" * 80)
 
                                         try:
-                                            gdb = reset_target_and_gdb(gdb, jump_address)
+                                            # Reflashing to ensure next calls are clean
+                                            gdb = re_initialize(gdb, jump_address)
                                         except TimeoutError:
                                             print("Timeout, reflashing", flush=True)
                                             gdb = re_initialize(gdb, jump_address)
@@ -332,9 +333,10 @@ if __name__ == "__main__":
     # Get the test result path
     log_dir = os.environ.get("TEST_UNDECLARED_OUTPUTS_DIR")
     # Get the firmware path to increment the security version of the bl0
-    bl0_sec_ver_incr_path = r.Rlocation(
-        "lowrisc_opentitan/sw/device/tests/penetrationtests/bl0_sec_ver_incr_fpga_cw340_rom_ext.img"
-    )
+    # bl0_sec_ver_incr_path = r.Rlocation(
+    #     "lowrisc_opentitan/sw/device/tests/penetrationtests/bl0_sec_ver_incr_fpga_cw340_rom_ext.img"
+    # )
+    bl0_sec_ver_incr_path = "/home/sdhooghe/opentitan/bl0_sec_ver_incr_fpga_cw340_rom_with_fake_keys.test_key_0.signed.bin"
     # Get the firmware path of the low security version testOS
     firmware_path = r.Rlocation("lowrisc_opentitan/" + BOOTSTRAP)
     # Get the rom path.
@@ -346,9 +348,9 @@ if __name__ == "__main__":
     # Get the rom_ext path.
     rom_ext_path = r.Rlocation("lowrisc_opentitan/" + ROM_EXT)
     # Get the disassembly path.
-    rom_ext_dis_path = rom_ext_path.replace(".prod_key_0.signed.bin", ".dis")
+    rom_ext_dis_path = rom_ext_path.replace(".prod_key_0.prod_key_0.signed.bin", ".dis")
     # And the path for the elf.
-    rom_ext_elf_path = rom_ext_path.replace(".prod_key_0.signed.bin", ".elf")
+    rom_ext_elf_path = rom_ext_path.replace(".prod_key_0.prod_key_0.signed.bin", ".elf")
 
     if "fpga" in BOOTSTRAP:
         target_type = "fpga"

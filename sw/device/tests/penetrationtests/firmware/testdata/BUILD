@@ -118,7 +118,7 @@ otp_json(
 
 otp_image(
     name = "otp_img_rom_ext_fi",
-    src = "//hw/top_earlgrey/data/otp:otp_json_rma",
+    src = "//hw/ip/otp_ctrl/data:otp_json_rma",
     overlays = STD_OTP_OVERLAYS + [
         ":otp_json_rom_ext_fi",
     ],
@@ -156,7 +156,7 @@ otp_json(
 
 otp_image(
     name = "otp_img_rom_rollback_fi",
-    src = "//hw/top_earlgrey/data/otp:otp_json_rma",
+    src = "//hw/ip/otp_ctrl/data:otp_json_rma",
     overlays = STD_OTP_OVERLAYS + [
         ":otp_json_rom_rollback_fi",
     ],
@@ -194,7 +194,7 @@ otp_json(
 
 otp_image(
     name = "otp_img_rom_ext_rollback_fi",
-    src = "//hw/top_earlgrey/data/otp:otp_json_rma",
+    src = "//hw/ip/otp_ctrl/data:otp_json_rma",
     overlays = STD_OTP_OVERLAYS + [
         ":otp_json_rom_ext_rollback_fi",
     ],
