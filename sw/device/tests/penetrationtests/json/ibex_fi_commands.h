@@ -37,6 +37,7 @@ extern "C" {
     value(_, CharCsrWrite) \
     value(_, CharCsrCombi) \
     value(_, CharFlashRead) \
+    value(_, CharFlashReadStatic) \
     value(_, CharFlashWrite) \
     value(_, CharHardenedCheckComplementBranch) \
     value(_, CharHardenedCheckUnimp) \
