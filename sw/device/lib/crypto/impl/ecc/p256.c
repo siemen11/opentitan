@@ -8,6 +8,7 @@
 #include "sw/device/lib/base/hardened.h"
 #include "sw/device/lib/base/hardened_memory.h"
 #include "sw/device/lib/crypto/drivers/otbn.h"
+#include "sw/device/lib/crypto/include/integrity.h"
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
 
@@ -56,6 +57,7 @@ OTBN_DECLARE_SYMBOL_ADDR(run_p256, MODE_SIDELOAD_SIGN);
 OTBN_DECLARE_SYMBOL_ADDR(run_p256, MODE_SIDELOAD_ECDH);
 OTBN_DECLARE_SYMBOL_ADDR(run_p256, MODE_POINTONCRV_CHECK);
 OTBN_DECLARE_SYMBOL_ADDR(run_p256, MODE_BASE_POINT_MULT);
+OTBN_DECLARE_SYMBOL_ADDR(run_p256, MODE_SHARE_SECRET_KEY);
 static const uint32_t kOtbnP256ModeKeygen =
     OTBN_ADDR_T_INIT(run_p256, MODE_KEYGEN);
 static const uint32_t kOtbnP256ModeSign = OTBN_ADDR_T_INIT(run_p256, MODE_SIGN);
@@ -74,6 +76,8 @@ static const uint32_t kOtbnP256ModePointOnCurveCheck =
     OTBN_ADDR_T_INIT(run_p256, MODE_POINTONCRV_CHECK);
 static const uint32_t kOtbnP256ModeBasePointMult =
     OTBN_ADDR_T_INIT(run_p256, MODE_BASE_POINT_MULT);
+static const uint32_t kOtbnP256ModeShareSecretKey =
+    OTBN_ADDR_T_INIT(run_p256, MODE_SHARE_SECRET_KEY);
 
 enum {
   /*
@@ -99,11 +103,12 @@ enum {
   kModeKeygenSideloadInsCnt = 573807,
   kModeEcdhInsCnt = 581607,
   kModeEcdhSideloadInsCnt = 581665,
-  kModeEcdsaSignConfigKInsCnt = 606944,
+  kModeEcdsaSignConfigKInsCnt = 606946,
   kModeEcdsaSignInsCnt = 607096,
   kModeEcdsaSignSideloadInsCnt = 607154,
   kModePointOnCurveCheckInsCnt = 224,
   kModeBasePointMultInsCnt = 573756,
+  kModeShareSecretKeyInsCnt = 92,
 };
 
 static status_t p256_masked_scalar_write(p256_masked_scalar_t *src,
@@ -517,6 +522,54 @@ status_t p256_base_point_mult(p256_masked_scalar_t *private_key,
       otbn_dmem_read(kP256CoordWords, kOtbnVarX, public_key->x));
   HARDENED_TRY_WIPE_DMEM(
       otbn_dmem_read(kP256CoordWords, kOtbnVarY, public_key->y));
+
+  // Wipe DMEM.
+  return otbn_dmem_sec_wipe();
+}
+
+OT_WARN_UNUSED_RESULT
+status_t p256_share_secret_key(otcrypto_const_word32_buf_t *share0,
+                               otcrypto_const_word32_buf_t *share1,
+                               p256_masked_scalar_t *result) {
+  // Load the P-256 app. Fails if OTBN is non-idle.
+  HARDENED_TRY(otbn_load_app(kOtbnAppP256));
+
+  // Set mode so start() will jump into the share_secret_key routine.
+  uint32_t mode = kOtbnP256ModeShareSecretKey;
+  HARDENED_TRY(otbn_dmem_write(kOtbnP256ModeWords, &mode, kOtbnVarMode));
+
+  // Write the input shares into OTBN dmem.
+  HARDENED_TRY(
+      otbn_dmem_write(kP256MaskedScalarShareWords, share0->data, kOtbnVarD0));
+  HARDENED_TRY(
+      otbn_dmem_write(kP256MaskedScalarShareWords, share1->data, kOtbnVarD1));
+
+  // Write trailing zeros so OTBN's 256-bit wide reads do not trigger an error.
+  HARDENED_TRY(otbn_dmem_set(kMaskedScalarPaddingWords, 0,
+                             kOtbnVarD0 + kP256MaskedScalarShareBytes));
+  HARDENED_TRY(otbn_dmem_set(kMaskedScalarPaddingWords, 0,
+                             kOtbnVarD1 + kP256MaskedScalarShareBytes));
+
+  // Start the OTBN routine.
+  HARDENED_TRY(otbn_execute());
+
+  // Spin here waiting for OTBN to complete.
+  HARDENED_TRY_WIPE_DMEM(otbn_busy_wait_for_done());
+
+  // Check the instruction count.
+  HARDENED_CHECK_EQ(otbn_instruction_count_get(), kModeShareSecretKeyInsCnt);
+
+  // Read the refreshed, arithmetic shares out of OTBN dmem.
+  HARDENED_TRY_WIPE_DMEM(
+      otbn_dmem_read(kP256MaskedScalarShareWords, kOtbnVarD0, result->share0));
+  HARDENED_TRY_WIPE_DMEM(
+      otbn_dmem_read(kP256MaskedScalarShareWords, kOtbnVarD1, result->share1));
+
+  // Compute the checksum for the result.
+  result->checksum = p256_masked_scalar_checksum(result);
+
+  // Check the input buffers (share0 suffices).
+  HARDENED_CHECK_EQ(kHardenedBoolTrue, OTCRYPTO_CHECK_BUF(share0));
 
   // Wipe DMEM.
   return otbn_dmem_sec_wipe();

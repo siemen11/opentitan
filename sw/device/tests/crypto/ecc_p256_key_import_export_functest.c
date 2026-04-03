@@ -35,6 +35,43 @@ static const otcrypto_key_config_t kPrivateKeyConfig = {
 static const char kMessage[] = "test message for public key import";
 
 /**
+ * Helper to add two P-256 shares modulo M (where M = n * 2^64).
+ */
+static void add_shares_mod_m(const uint32_t *share0, const uint32_t *share1,
+                             uint32_t *out) {
+  // P-256 curve order `n` shifted left by 64 bits (M = n << 64).
+  const uint32_t M[kP256MaskedScalarShareWords] = {
+      0x00000000, 0x00000000, 0xfc632551, 0xf3b9cac2, 0xa7179e84,
+      0xbce6faad, 0xffffffff, 0xffffffff, 0x00000000, 0xffffffff};
+
+  uint64_t carry = 0;
+  for (size_t i = 0; i < kP256MaskedScalarShareWords; i++) {
+    uint64_t sum = (uint64_t)share0[i] + share1[i] + carry;
+    out[i] = (uint32_t)sum;
+    carry = sum >> 32;
+  }
+
+  bool is_greater_or_equal = true;
+  for (int i = kP256MaskedScalarShareWords - 1; i >= 0; i--) {
+    if (out[i] > M[i]) {
+      break;
+    } else if (out[i] < M[i]) {
+      is_greater_or_equal = false;
+      break;
+    }
+  }
+
+  if (is_greater_or_equal || carry) {
+    uint64_t borrow = 0;
+    for (size_t i = 0; i < kP256MaskedScalarShareWords; i++) {
+      uint64_t diff = (uint64_t)out[i] - M[i] - borrow;
+      out[i] = (uint32_t)diff;
+      borrow = (diff >> 32) & 1;
+    }
+  }
+}
+
+/**
  * Generate a P-256 keypair, re-import both the private key shares and the
  * public key coordinates, then sign with the imported private key and verify
  * with the imported public key.
@@ -90,6 +127,7 @@ static status_t import_then_verify_test(void) {
   LOG_INFO("Importing private key shares...");
   TRY(otcrypto_ecc_p256_private_key_import(share0, share1,
                                            &imported_private_key));
+  LOG_INFO("OTBN instruction count: 0x%08x", otbn_instruction_count_get());
 
   // Export the imported private key back to shares and verify they match the
   // originals.
@@ -102,10 +140,16 @@ static status_t import_then_verify_test(void) {
   LOG_INFO("Exporting private key shares...");
   TRY(otcrypto_ecc_p256_private_key_export(&imported_private_key,
                                            &exported_share0, &exported_share1));
-  TRY_CHECK_ARRAYS_EQ(exported_share0_data, keyblob,
-                      kP256MaskedScalarShareWords);
-  TRY_CHECK_ARRAYS_EQ(exported_share1_data,
-                      keyblob + kP256MaskedScalarShareWords,
+
+  uint32_t original_unmasked[kP256MaskedScalarShareWords];
+  uint32_t exported_unmasked[kP256MaskedScalarShareWords];
+
+  add_shares_mod_m(keyblob, keyblob + kP256MaskedScalarShareWords,
+                   original_unmasked);
+  add_shares_mod_m(exported_share0_data, exported_share1_data,
+                   exported_unmasked);
+
+  TRY_CHECK_ARRAYS_EQ(exported_unmasked, original_unmasked,
                       kP256MaskedScalarShareWords);
 
   // Import the public key from its coordinates into a fresh buffer.

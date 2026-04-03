@@ -17,7 +17,7 @@
 
 /**
  * Mode magic values, generated with
- * $ ./util/design/sparse-fsm-encode.py -d 6 -m 9 -n 11 \
+ * $ ./util/design/sparse-fsm-encode.py -d 6 -m 11 -n 11 \
  *     --avoid-zero -s 380925547
  *
  * Call the same utility with the same arguments and a higher -m to generate
@@ -38,6 +38,7 @@
 .equ MODE_SIDELOAD_ECDH, 0x2F1
 .equ MODE_POINTONCRV_CHECK, 0x6AA
 .equ MODE_BASE_POINT_MULT, 0x3C6
+.equ MODE_SHARE_SECRET_KEY, 0x31B
 
 /**
  * Make the mode constants visible to Ibex.
@@ -52,6 +53,7 @@
 .globl MODE_SIDELOAD_ECDH
 .globl MODE_POINTONCRV_CHECK
 .globl MODE_BASE_POINT_MULT
+.globl MODE_SHARE_SECRET_KEY
 
 /**
  * Hardened boolean values.
@@ -104,6 +106,9 @@ start:
 
   addi  x3, x0, MODE_BASE_POINT_MULT
   beq   x2, x3, base_point_mult
+
+  addi  x3, x0, MODE_SHARE_SECRET_KEY
+  beq   x2, x3, refresh_secret_key
 
   /* Copy the caller-provided secret scalar shares into scratchpad memory.
        dmem[k0] <= dmem[k0_io]
@@ -369,8 +374,95 @@ point_on_curve_check:
 
   ecall
 
+/**
+ * Calculate a base point multiplication.
+ *
+ * This routine runs in constant time.
+ *
+ * @param[in]  dmem[d0]: d0, first share of the secret key.
+ * @param[in]  dmem[d1]: d1, second share of the secret key.
+ * @param[out] dmem[x]: Public key (Q) x-coordinate.
+ * @param[out] dmem[y]: Public key (Q) y-coordinate.
+ */
 base_point_mult:
   jal x1, p256_base_mult
+
+  ecall
+
+/**
+ * Generate an arithmetic refresh of a secret key sharing.
+ *
+ * The input is an arithmetic sharing (two 320-bit shares d0, d1).
+ * If the user wants to import an unshared FIPS key, they simply pass the 
+ * raw key as d0 and an array of zeros as d1. 
+ *
+ * @param[in]  dmem[d0]: d0, first arithmetic share.
+ * @param[in]  dmem[d1]: d1, second arithmetic share.
+ * @param[out] dmem[d0_io]: d0', refreshed first arithmetic share.
+ * @param[out] dmem[d1_io]: d1', refreshed second arithmetic share.
+ */
+refresh_secret_key:
+  /* w31 <= 0. */
+  bn.xor w31, w31, w31
+
+  /* Load the key shares into registers:
+     w20, w21 <= d0
+     w10, w11 <= d1. */
+  li x2, 20
+  la x3, d0
+  bn.lid x2++, 0(x3)
+  bn.lid x2++, 32(x3)
+  li x2, 10
+  la x3, d1
+  bn.lid x2++, 0(x3)
+  bn.lid x2++, 32(x3)
+
+  la x10, p256_n
+  li x11, 19
+  bn.lid x11, 0(x10) 
+
+  /* Compute M = n << 64
+     w28, w29 <= M */
+  bn.rshi w28, w19, w31 >> 192
+  bn.rshi w29, w31, w19 >> 192
+
+  /* Generate 319-bit random R. */
+  bn.wsrr w2, URND
+  bn.wsrr w3, URND
+  bn.rshi w3, w31, w3 >> 193 /* Shift away top bits to leave 63 bits */
+
+  /* d0' = (d0 + R) mod M */
+  bn.add w20, w20, w2
+  bn.addc w21, w21, w3
+
+  /* Conditionally subtract M if the sum >= M */
+  bn.sub w24, w20, w28
+  bn.subb w25, w21, w29
+  bn.sel w20, w20, w24, FG0.C
+  bn.sel w21, w21, w25, FG0.C
+
+  /* d1' = (d1 - R) mod M */
+  bn.add w10, w10, w28
+  bn.addc w11, w11, w29
+
+  /* Subtract R */
+  bn.sub w10, w10, w2
+  bn.subb w11, w11, w3
+
+  /* Conditionally subtract M */
+  bn.sub w24, w10, w28
+  bn.subb w25, w11, w29
+  bn.sel w10, w10, w24, FG0.C
+  bn.sel w11, w11, w25, FG0.C
+
+  li       x2, 20
+  la       x3, d0_io
+  bn.sid   x2++, 0(x3)
+  bn.sid   x2++, 32(x3)
+  li       x2, 10
+  la       x3, d1_io
+  bn.sid   x2++, 0(x3)
+  bn.sid   x2++, 32(x3)
 
   ecall
 

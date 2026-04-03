@@ -824,13 +824,20 @@ otcrypto_status_t otcrypto_ecc_p256_private_key_import(
   HARDENED_TRY(hardened_memshred(private_key->keyblob,
                                  kP256MaskedScalarTotalShareWords));
 
-  // Copy the caller-supplied shares into the keyblob as share0 || share1,
+  // Remask the input
+  p256_masked_scalar_t private_scalar;
+  HARDENED_TRY(p256_share_secret_key(&share0, &share1, &private_scalar));
+
+  HARDENED_CHECK_EQ(p256_masked_scalar_checksum_check(&private_scalar),
+                    kHardenedBoolTrue);
+
+  // Copy the refreshed shares into the keyblob as share0 || share1,
   // matching the p256_masked_scalar_t layout.
-  HARDENED_TRY(hardened_memcpy(private_key->keyblob, share0.data,
-                               kP256MaskedScalarShareWords));
-  HARDENED_TRY(
-      hardened_memcpy(private_key->keyblob + kP256MaskedScalarShareWords,
-                      share1.data, kP256MaskedScalarShareWords));
+  HARDENED_TRY(hardened_memcpy(private_key->keyblob, private_scalar.share0,
+                               kP256MaskedScalarTotalShareWords));
+  HARDENED_CHECK_EQ(hardened_memeq(private_scalar.share0, private_key->keyblob,
+                                   kP256MaskedScalarTotalShareWords),
+                    kHardenedBoolTrue);
 
   // Set the blinded key checksum.
   private_key->checksum = integrity_blinded_checksum(private_key);

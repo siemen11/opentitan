@@ -404,6 +404,18 @@ OT_WARN_UNUSED_RESULT
 status_t p256_base_point_mult(p256_masked_scalar_t *private_key,
                               p256_point_t *public_key);
 
+/**
+ * Refresh the masking of an arithmetic sharing.
+ *
+ * @param share0 buffer for the first arithmetic share.
+ * @param share1 buffer for the second arithmetic share.
+ * @param shared_private_key The resulting refreshed key.
+ * @return Result of the sharing operation.
+ */
+status_t p256_share_secret_key(otcrypto_const_word32_buf_t *share0,
+                               otcrypto_const_word32_buf_t *share1,
+                               p256_masked_scalar_t *result);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
