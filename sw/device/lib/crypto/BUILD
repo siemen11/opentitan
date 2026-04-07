@@ -27,6 +27,7 @@ ot_static_library(
         "//sw/device/lib/crypto/impl:kmac",
         "//sw/device/lib/crypto/impl:kmac_kdf",
         "//sw/device/lib/crypto/impl:rsa",
+        "//sw/device/lib/crypto/impl:dice",
         "//sw/device/lib/crypto/impl:security_config",
         "//sw/device/lib/crypto/impl:sha2",
         "//sw/device/lib/crypto/impl:sha3",
