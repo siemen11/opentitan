@@ -385,20 +385,3 @@ cc_library(
         "//sw/device/lib/crypto/include:datatypes",
     ],
 )
-
-cc_library(
-    name = "dice",
-    srcs = ["dice.c"],
-    hdrs = ["//sw/device/lib/crypto/include:dice.h"],
-    target_compatible_with = [OPENTITAN_CPU],
-    deps = [
-        ":status",
-        ":integrity",
-        "//sw/device/lib/base:macros",
-        "//sw/device/lib/base:memory",
-        "//sw/device/silicon_creator/lib:dbg_print",
-        "//sw/device/lib/crypto/drivers:keymgr",
-        "//sw/device/lib/crypto/drivers:otbn",
-        "//sw/otbn/crypto:boot",
-    ],
-)

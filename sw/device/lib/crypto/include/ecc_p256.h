@@ -176,7 +176,43 @@ otcrypto_status_t otcrypto_ecdsa_p256_keygen_async_start(
 /**
  * Finalizes asynchronous key generation for ECDSA/P-256.
  *
- * See `otcrypto_ecdsa_p256_keygen` for requirements on input values.
+ * See `otcrypto_ecdsa_p256_keygen_async_start` for requirements on input
+ * values.
+ *
+ * May block until the operation is complete.
+ *
+ * The caller should ensure that the private key configuration matches that
+ * passed to the `_start` function.
+ *
+ * @param private_key key handle, does not return the generated private key (d).
+ * @param[out] public_key Pointer to the unblinded public key (Q) struct.
+ * @return Result of asynchronous ECDSA keygen finalize operation.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_ecdsa_p256_keygen_async_finalize(
+    otcrypto_blinded_key_t *private_key, otcrypto_unblinded_key_t *public_key);
+
+/**
+ * Starts asynchronous key generation for P-256 with the CDI key.
+ *
+ * The caller should allocate and partially populate the blinded key struct,
+ * including populating the key configuration and use the private key handle
+ * returned by `otcrypto_hw_backed_attestation_key`.
+ *
+ * @param private_key Destination structure for key handle.
+ * @param attestation_seed The additional per-chip fixed entropy.
+ * @return Result of asynchronous ECDSA keygen start operation.
+ */
+otcrypto_status_t otcrypto_ecdsa_p256_dice_keygen_async_start(
+    const otcrypto_blinded_key_t *private_key,
+    otcrypto_const_word32_buf_t *attestation_seed);
+
+/**
+ * Finalizes asynchronous key generation for P-256 with the CDI key.
+ *
+ * The caller should allocate and partially populate the blinded key struct,
+ * including populating the key configuration and use the private key handle
+ * returned by `otcrypto_hw_backed_attestation_key`.
  *
  * May block until the operation is complete.
  *
@@ -188,7 +224,7 @@ otcrypto_status_t otcrypto_ecdsa_p256_keygen_async_start(
  * @return Result of asynchronous ECDSA keygen finalize operation.
  */
 OT_WARN_UNUSED_RESULT
-otcrypto_status_t otcrypto_ecdsa_p256_keygen_async_finalize(
+otcrypto_status_t otcrypto_ecdsa_p256_dice_keygen_async_finalize(
     otcrypto_blinded_key_t *private_key, otcrypto_unblinded_key_t *public_key);
 
 /**
@@ -235,6 +271,42 @@ otcrypto_status_t otcrypto_ecdsa_p256_sign_async_start(
  */
 OT_WARN_UNUSED_RESULT
 otcrypto_status_t otcrypto_ecdsa_p256_sign_async_finalize(
+    otcrypto_word32_buf_t *signature);
+
+/**
+ * Starts asynchronous signature generation for ECDSA/P-256 with the CDI key.
+ *
+ * See `otcrypto_ecdsa_p256_sign` for requirements on input values.
+ *
+ * The caller should allocate and partially populate the blinded key struct,
+ * including populating the key configuration and use the private key handle
+ * returned by `otcrypto_hw_backed_attestation_key`.
+ *
+ * @param private_key Pointer to the blinded private key (d) struct.
+ * @param message_digest Message digest to be signed (pre-hashed).
+ * @param attestation_seed The additional per-chip fixed entropy.
+ * @return Result of async ECDSA start operation.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_ecdsa_p256_dice_sign_async_start(
+    const otcrypto_blinded_key_t *private_key,
+    const otcrypto_hash_digest_t message_digest,
+    otcrypto_const_word32_buf_t *attestation_seed);
+
+/**
+ * Finalizes asynchronous signature generation for ECDSA/P-256 with the CDI key.
+ *
+ * See `otcrypto_ecdsa_p256_sign` for requirements on input values.
+ *
+ * The caller should allocate and partially populate the blinded key struct,
+ * including populating the key configuration and use the private key handle
+ * returned by `otcrypto_hw_backed_attestation_key`.
+ *
+ * @param[out] signature Pointer to the signature struct with (r,s) values.
+ * @return Result of async ECDSA finalize operation.
+ */
+OT_WARN_UNUSED_RESULT
+otcrypto_status_t otcrypto_ecdsa_p256_dice_sign_async_finalize(
     otcrypto_word32_buf_t *signature);
 
 /**

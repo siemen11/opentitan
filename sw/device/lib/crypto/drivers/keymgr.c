@@ -125,11 +125,9 @@ static status_t keymgr_wait_until_done(void) {
 /**
  * Set the control register of the key manager.
  *
- * The CDI select bit is always set to false for this driver (i.e. Sealing
- * CDI). The driver does not support attestation CDI.
- *
  * @param dest (NONE, AES, OTBN, or KMAC)
  * @param operation (GENERATE_SW or GENERATE_HW)
+ * @param attestation (true, false)
  */
 #define WRITE_CTRL(dest, operation, attestation)                               \
   do {                                                                         \
@@ -150,6 +148,7 @@ static status_t keymgr_wait_until_done(void) {
  *
  * @param dest (NONE, AES, OTBN, or KMAC)
  * @param operation (GENERATE_SW or GENERATE_HW)
+ * @param attestation (true, false)
  */
 #define VERIFY_CTRL(dest, operation, attestation)                              \
   do {                                                                         \
