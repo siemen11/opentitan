@@ -212,13 +212,9 @@ opentitan_test(
     exec_env = CRYPTOTEST_EXEC_ENVS,
     fpga = fpga_params(
         timeout = "long",
-        tags = ["broken"],  # https://github.com/lowRISC/opentitan/issues/15788
-        # [test-triage] test not constant time with icache enabled
     ),
     verilator = verilator_params(
         timeout = "long",
-        tags = ["broken"],  # https://github.com/lowRISC/opentitan/issues/15788
-        # [test-triage] test not constant time with icache enabled
     ),
     deps = [
         ":aes_gcm_testutils",
