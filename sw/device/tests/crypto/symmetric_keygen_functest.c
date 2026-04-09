@@ -4,6 +4,7 @@
 
 #include "sw/device/lib/base/status.h"
 #include "sw/device/lib/crypto/impl/keyblob.h"
+#include "sw/device/lib/crypto/include/config.h"
 #include "sw/device/lib/crypto/include/drbg.h"
 #include "sw/device/lib/crypto/include/entropy_src.h"
 #include "sw/device/lib/crypto/include/integrity.h"
@@ -154,6 +155,9 @@ static status_t generate_multiple_keys_test(void) {
 
 bool test_main(void) {
   status_t result = OK_STATUS();
+
+  CHECK_STATUS_OK(otcrypto_set_security_config(kOtcryptoKeySecurityLevelLow));
+  CHECK_STATUS_OK(otcrypto_init(kOtcryptoKeySecurityLevelLow));
 
   EXECUTE_TEST(result, entropy_complex_init_test);
   EXECUTE_TEST(result, aes_keygen_test);

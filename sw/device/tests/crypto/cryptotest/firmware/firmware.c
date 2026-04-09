@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <stdbool.h>
 
+#include "sw/device/lib/crypto/include/config.h"
+#include "sw/device/lib/crypto/include/entropy_src.h"
 #include "sw/device/lib/testing/test_framework/check.h"
 #include "sw/device/lib/testing/test_framework/ottf_main.h"
 #include "sw/device/lib/testing/test_framework/ujson_ottf.h"
@@ -86,6 +88,9 @@ status_t process_cmd(ujson_t *uj) {
 }
 
 bool test_main(void) {
+  CHECK_STATUS_OK(otcrypto_set_security_config(kOtcryptoKeySecurityLevelLow));
+  CHECK_STATUS_OK(otcrypto_init(kOtcryptoKeySecurityLevelLow));
+  CHECK_STATUS_OK(otcrypto_entropy_init());
   ujson_t uj = ujson_ottf_console();
   return status_ok(process_cmd(&uj));
 }

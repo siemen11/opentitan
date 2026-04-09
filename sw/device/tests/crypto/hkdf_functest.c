@@ -4,6 +4,7 @@
 
 #include "sw/device/lib/crypto/drivers/entropy.h"
 #include "sw/device/lib/crypto/impl/keyblob.h"
+#include "sw/device/lib/crypto/include/config.h"
 #include "sw/device/lib/crypto/include/datatypes.h"
 #include "sw/device/lib/crypto/include/entropy_src.h"
 #include "sw/device/lib/crypto/include/hkdf.h"
@@ -599,6 +600,8 @@ static status_t run_negative_tests(void) {
 OTTF_DEFINE_TEST_CONFIG();
 
 bool test_main(void) {
+  CHECK_STATUS_OK(otcrypto_set_security_config(kOtcryptoKeySecurityLevelLow));
+  CHECK_STATUS_OK(otcrypto_init(kOtcryptoKeySecurityLevelLow));
   // Start the entropy complex.
   CHECK_STATUS_OK(otcrypto_entropy_init());
 

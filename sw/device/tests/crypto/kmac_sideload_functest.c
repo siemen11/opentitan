@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "sw/device/lib/crypto/drivers/kmac.h"
+#include "sw/device/lib/crypto/include/config.h"
 #include "sw/device/lib/crypto/include/datatypes.h"
 #include "sw/device/lib/crypto/include/entropy_src.h"
 #include "sw/device/lib/crypto/include/integrity.h"
@@ -356,6 +357,8 @@ bool test_main(void) {
   LOG_INFO("Keymgr entered %s State", state_name);
   LOG_INFO("Testing cryptolib KMAC driver with sideloaded key.");
 
+  CHECK_STATUS_OK(otcrypto_set_security_config(kOtcryptoKeySecurityLevelLow));
+  CHECK_STATUS_OK(otcrypto_init(kOtcryptoKeySecurityLevelLow));
   // Initialize the core with default parameters
   CHECK_STATUS_OK(otcrypto_entropy_init());
   CHECK_STATUS_OK(kmac_hwip_default_configure());
