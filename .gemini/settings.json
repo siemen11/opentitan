@@ -1,0 +1,26 @@
+{
+  "context": {
+    "fileName": ["GEMINI.md"],
+    "includeDirectories": ["."],
+    "loadFromIncludeDirectories": true,
+    "fileFiltering": {
+      "respectGitIgnore": true
+    }
+  },
+  "ui": {
+    "customWittyPhrases": [
+        "Extracting raw entropy from the silicon...",
+        "Polishing the elliptic curves to a high shine...",
+        "Rolling our own crypto... wait, never mind, letting OpenTitan do it.",
+        "Padding the payloads and masking the keys...",
+        "Making a cup of EarlGrey",
+        "Fending off a simulated laser fault injection...",
+        "Waking up the Ibex core...",
+        "Applying differential power analysis to your prompt...",
+        "Initializing the Root of Trust. Please stand by...",
+        "Stirring the TRNG entropy pool...",
+        "Checking for side-channel leaks in my own logic...",
+        "Calculating Keccak rounds..."
+    ]
+  }
+}
