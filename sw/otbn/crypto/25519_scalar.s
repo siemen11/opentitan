@@ -368,11 +368,6 @@ sc_blind:
   bn.mulqacc.so  w16.U, w21.3, w22.0, 64
   bn.mulqacc.wo  w17,   w21.3, w22.1, 0
 
-  /* w17 = (w17 << 3) | (w16 >> 253) */
-  bn.rshi w17, w17, w16 >> 253
-
-  /* w16 = (w16 << 3) | (0 >> 253) */
-  bn.rshi w16, w16, w31 >> 253
 
   /* Add the 381-bit blinding value to the 253-bit scalar resulting in a
      382-bit blinded scalar avoiding any overflow.

@@ -1322,18 +1322,18 @@ ext_scmul_sca:
 
   /* Move the newly expanded 385-bit share s0 to the MSB position.
      Left-shift by 127 bits = rshi by 129. */
-  bn.rshi w3, w3, w2 >> 129
-  bn.rshi w2, w2, w31 >> 129
+  bn.rshi w3, w3, w2 >> 126
+  bn.rshi w2, w2, w31 >> 126
 
   bn.xor w31, w31, w31 /* dummy */
 
   /* Move the newly expanded 385-bit share s1 to the MSB position. */
-  bn.rshi w5, w5, w4 >> 129
-  bn.rshi w4, w4, w31 >> 129
+  bn.rshi w5, w5, w4 >> 126
+  bn.rshi w4, w4, w31 >> 126
 
 
   /* Iterate over all scalar bits starting at the MSB. */
-  loopi  385, 56
+  loopi  382, 56
     /* Compute Q = 2 * Q.
          [w13:w10] <= [w13:w10] + [w13:w10] = 2 * Q  */
     jal x1, ext_double
