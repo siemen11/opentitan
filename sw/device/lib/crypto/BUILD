@@ -57,10 +57,14 @@ opentitan_binary_blob(
         "//sw/device/lib/runtime:log",
     ],
     # We add the compiler option -fno-jump-tables to prevent the compiler making the code position dependent.
-    transitive_features = ["no_jump_tables"],
+    transitive_features = ["no_jump_tables", "minsize"],
     deps = [
         "//hw/top_earlgrey/sw/autogen:top_earlgrey",
         "//sw/device/lib/crypto/include:crypto_hdrs",
+    ],
+    features = [
+        "minsize",         # Triggers -Oz and inline threshold tweaks
+        "lto",             # Triggers -flto
     ],
 )
 

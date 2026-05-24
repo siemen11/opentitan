@@ -87,6 +87,8 @@ cc_toolchain(
         ":feat_opt",
         ":feat_rv32_bitmanip",
         ":feat_no_jump_tables",
+        ":feat_merge_constants", # <--- FIXED: Now pointing to a cc_feature
+        ":feat_fips_pic_size",
     ],
     tool_map = ":tool_map",
 )
@@ -272,16 +274,6 @@ cc_feature_constraint(
 cc_feature_constraint(
     name = "constraint_no_bitmanip",
     none_of = [":feat_rv32_bitmanip"],
-)
-
-cc_args(
-    name = "arch_rv32imcb",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:compile_actions",
-        "@rules_cc//cc/toolchains/actions:link_actions",
-    ],
-    args = ["-march=rv32imc_zba_zbb_zbc_zbs"],
-    requires_any_of = [":constraint_bitmanip"],
 )
 
 cc_args(
@@ -485,4 +477,24 @@ cc_args(
     name = "no_jump_tables_args",
     actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
     args = ["-fno-jump-tables"],
+)
+
+cc_args(
+    name = "arch_rv32imcb",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:compile_actions",
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "-march=rv32imc_zba_zbb_zbc_zbf0p93_zbp0p93_zbs_zbt0p93",
+        "-menable-experimental-extensions",
+    ],
+    requires_any_of = [":constraint_bitmanip"],
+)
+
+# --- FIXED: Properly wrapped merge_constants inside a cc_feature ---
+cc_feature(
+    name = "feat_merge_constants",
+    feature_name = "merge_constants",
+    args = [":args_merge_constants"],
 )
