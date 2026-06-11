@@ -7,10 +7,12 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "hw/top/dt/otbn.h"
 #include "sw/device/lib/base/abs_mmio.h"
 #include "sw/device/lib/base/bitfield.h"
+#include "sw/device/lib/base/crc32.h"
 #include "sw/device/silicon_creator/lib/base/sec_mmio.h"
 #include "sw/device/silicon_creator/lib/drivers/rnd.h"
 #include "sw/device/silicon_creator/lib/error.h"
@@ -72,12 +74,16 @@ rom_error_t sc_otbn_busy_wait_for_done(void) {
 /**
  * Helper function for writing to OTBN's DMEM or IMEM.
  *
- * @param dest_addr Destination address.
+ * @param reg_offset Register offset (IMEM or DMEM).
+ * @param otbn_addr OTBN address relative to memory start.
  * @param src Source buffer.
  * @param num_words Number of words to copy.
+ * @param crc_ctx Optional CRC32 context to accumulate checksum.
  */
-static void sc_otbn_write(uint32_t dest_addr, const uint32_t *src,
-                          size_t num_words) {
+static void sc_otbn_write(uint32_t reg_offset, uint32_t otbn_addr,
+                          const uint32_t *src, size_t num_words,
+                          uint32_t *crc_ctx) {
+  uint32_t dest_addr = otbn_base() + reg_offset + otbn_addr;
   // Start from a random index less than `num_words`.
   uint32_t i = ((uint64_t)rnd_uint32() * (uint64_t)num_words) >> 32;
   enum { kStep = 1 };
@@ -85,6 +91,16 @@ static void sc_otbn_write(uint32_t dest_addr, const uint32_t *src,
   for (; launder32(iter_cnt) < num_words && launder32(r_iter_cnt) < num_words;
        ++iter_cnt, --r_iter_cnt) {
     abs_mmio_write32(dest_addr + i * sizeof(uint32_t), src[i]);
+
+    if (crc_ctx) {
+      uint32_t word_offset = (otbn_addr + i * sizeof(uint32_t)) >> 2;
+      uint32_t location = word_offset & 0x7FFF;
+      char crc_data[6];
+      memcpy(crc_data, &src[i], sizeof(uint32_t));
+      memcpy(crc_data + sizeof(uint32_t), &location, 2);
+      crc32_add(crc_ctx, crc_data, sizeof(crc_data));
+    }
+
     i += kStep;
     if (launder32(i) >= num_words) {
       i -= num_words;
@@ -100,15 +116,40 @@ static rom_error_t sc_otbn_imem_write(size_t num_words, const uint32_t *src,
                                       sc_otbn_addr_t dest) {
   HARDENED_RETURN_IF_ERROR(
       check_offset_len(dest, num_words, OTBN_IMEM_SIZE_BYTES));
-  sc_otbn_write(otbn_base() + OTBN_IMEM_REG_OFFSET + dest, src, num_words);
+  sc_otbn_write(OTBN_IMEM_REG_OFFSET, dest, src, num_words, NULL);
   return kErrorOk;
+}
+
+static void sc_otbn_dmem_write_unchecked(size_t num_words, const uint32_t *src,
+                                         sc_otbn_addr_t dest,
+                                         uint32_t *crc_ctx) {
+  sc_otbn_write(OTBN_DMEM_REG_OFFSET, dest, src, num_words, crc_ctx);
 }
 
 rom_error_t sc_otbn_dmem_write(size_t num_words, const uint32_t *src,
                                sc_otbn_addr_t dest) {
   HARDENED_RETURN_IF_ERROR(
       check_offset_len(dest, num_words, OTBN_DMEM_SIZE_BYTES));
-  sc_otbn_write(otbn_base() + OTBN_DMEM_REG_OFFSET + dest, src, num_words);
+
+  // Reset the LOAD_CHECKSUM register.
+  abs_mmio_write32(otbn_base() + OTBN_LOAD_CHECKSUM_REG_OFFSET, 0);
+
+  // Initialize CRC32.
+  uint32_t crc_ctx;
+  crc32_init(&crc_ctx);
+
+  // Write data and compute CRC.
+  sc_otbn_dmem_write_unchecked(num_words, src, dest, &crc_ctx);
+
+  // Verify checksum.
+  uint32_t checksum_expected = crc32_finish(&crc_ctx);
+  uint32_t checksum =
+      abs_mmio_read32(otbn_base() + OTBN_LOAD_CHECKSUM_REG_OFFSET);
+  if (launder32(checksum) != checksum_expected) {
+    return kErrorOtbnBadChecksum;
+  }
+  HARDENED_CHECK_EQ(checksum, checksum_expected);
+
   return kErrorOk;
 }
 
@@ -249,6 +290,9 @@ rom_error_t sc_otbn_load_app(const sc_otbn_app_t app) {
   HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_sec_wipe());
   HARDENED_RETURN_IF_ERROR(sc_otbn_imem_sec_wipe());
 
+  // Reset the LOAD_CHECKSUM register.
+  abs_mmio_write32(otbn_base() + OTBN_LOAD_CHECKSUM_REG_OFFSET, 0);
+
   const size_t imem_num_words = (size_t)(app.imem_end - app.imem_start);
   const size_t data_num_words =
       (size_t)(app.dmem_data_end - app.dmem_data_start);
@@ -259,8 +303,19 @@ rom_error_t sc_otbn_load_app(const sc_otbn_app_t app) {
       sc_otbn_imem_write(imem_num_words, app.imem_start, imem_start_addr));
 
   if (data_num_words > 0) {
-    HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
-        data_num_words, app.dmem_data_start, app.dmem_data_start_addr));
+    HARDENED_RETURN_IF_ERROR(check_offset_len(
+        app.dmem_data_start_addr, data_num_words, OTBN_DMEM_SIZE_BYTES));
+    sc_otbn_dmem_write_unchecked(data_num_words, app.dmem_data_start,
+                                 app.dmem_data_start_addr, NULL);
   }
+
+  // Ensure that the checksum matches expectations.
+  uint32_t checksum =
+      abs_mmio_read32(otbn_base() + OTBN_LOAD_CHECKSUM_REG_OFFSET);
+  if (launder32(checksum) != app.checksum) {
+    return kErrorOtbnBadChecksum;
+  }
+  HARDENED_CHECK_EQ(checksum, app.checksum);
+
   return kErrorOk;
 }
