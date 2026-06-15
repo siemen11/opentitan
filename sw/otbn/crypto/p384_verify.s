@@ -53,10 +53,13 @@ store_aff_proj:
 
   /* store point */
   li        x2, 6
-  loopi 6, 2
-    bn.sid    x2, 0(x12++)
-    addi      x2, x2, 1
-  nop
+  bn.sid    x2++, 0(x12)
+  bn.sid    x2++, 32(x12)
+  bn.sid    x2++, 64(x12)
+  bn.sid    x2++, 96(x12)
+  bn.sid    x2++, 128(x12)
+  bn.sid    x2++, 160(x12)
+  addi      x12, x12, 192
 
   ret
 
@@ -82,10 +85,13 @@ store_aff_proj:
  */
 store_proj:
   li        x2, 25
-  loopi 6, 2
-    bn.sid    x2, 0(x12++)
-    addi      x2, x2, 1
-  nop
+  bn.sid    x2++, 0(x12)
+  bn.sid    x2++, 32(x12)
+  bn.sid    x2++, 64(x12)
+  bn.sid    x2++, 96(x12)
+  bn.sid    x2++, 128(x12)
+  bn.sid    x2++, 160(x12)
+  addi      x12, x12, 192
   ret
 
 /**
@@ -300,19 +306,25 @@ p384_verify:
   bn.xor    w29, w29, w29
   bn.xor    w30, w30, w30
   la        x12, scratchpad
+  addi      x2, x12, 0
   jal       x1, store_proj
+  beq       x12, x2, p384_invalid_input
 
   /* load base point G and use in projective form (set z to 1)
      G = (x,y,z) = scratchpad[192] <= (dmem[p384_gy], dmem[p384_gy], 1) */
   la        x10, p384_gx
   la        x11, p384_gy
+  addi      x2, x12, 0
   jal       x1, store_aff_proj
+  beq       x12, x2, p384_invalid_input
 
   /* load public key Q from dmem and use in projective form (set z to 1)
      Q = (x,y,z) = scratchpad[384] <= (dmem[*dptr_x], dmem[*dptr_y], 1) */
   add       x10, x13, x0
   add       x11, x14, x0
+  addi      x2, x12, 0
   jal       x1,  store_aff_proj
+  beq       x12, x2, p384_invalid_input
 
   /* The remaining part of the routine implements a variable time
      double-and-add algorithm. For the signature verification we need to
@@ -326,7 +338,9 @@ p384_verify:
   addi      x27, x26, 384
   addi      x26, x26, 192
   jal       x1, proj_add_p384
+  addi      x2, x12, 0
   jal       x1, store_proj
+  beq       x12, x2, p384_invalid_input
 
   la        x26, scratchpad
 
@@ -334,7 +348,7 @@ p384_verify:
   addi      x15, x0, 0
 
   /* main loop with decreasing index i (i=383 downto 0) */
-  loopi     384, 35
+  loopi     384, 38
 
     /* probe MSBs of u1 and u2 and u1|u2 to determine which point has to be
        added. */
@@ -384,6 +398,7 @@ p384_verify:
     jal       x1, proj_add_p384
     addi      x12, x26, 0
     jal       x1, store_proj
+    beq       x12, x26, ver_trap
 
     /* check if u1[i] is set */
     bne       x3, x0, u1_set
@@ -391,6 +406,9 @@ p384_verify:
     /* only u2[i] is set: do C <= C + Q */
     addi      x27, x26, 384
     jal       x0, ver_end_loop
+
+    ver_trap:
+    jal       x0, p384_invalid_input
 
     u1_set:
     /* chek if u2[i] is set as well */
@@ -411,6 +429,7 @@ p384_verify:
     jal       x1, proj_add_p384
     addi      x12, x26, 0
     jal       x1, store_proj
+    beq       x12, x26, ver_trap
 
     /* increment counter */
     addi     x15, x15, 1
