@@ -676,6 +676,25 @@ opentitan_test(
 )
 
 opentitan_test(
+    name = "pct_functest",
+    srcs = ["pct_functest.c"],
+    exec_env = CRYPTOTEST_EXEC_ENVS,
+    deps = [
+        "//sw/device/lib/base:macros",
+        "//sw/device/lib/crypto",
+        "//sw/device/lib/crypto/impl:keyblob",
+        "//sw/device/lib/crypto/include:crypto_hdrs",
+        "//sw/device/lib/runtime:log",
+        "//sw/device/lib/testing/test_framework:ottf_main",
+    ],
+)
+
+fips_wrap_opentitan_test(
+    name = "pct_functest",
+    exec_env = CRYPTOTEST_FIPS_EXEC_ENVS,
+)
+
+opentitan_test(
     name = "ecdh_p256_sideload_functest",
     srcs = ["ecdh_p256_sideload_functest.c"],
     exec_env = CRYPTOTEST_EXEC_ENVS,
