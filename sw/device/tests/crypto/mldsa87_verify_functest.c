@@ -4,6 +4,7 @@
 
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/crypto/drivers/otbn.h"
+#include "sw/device/lib/crypto/include/config.h"
 #include "sw/device/lib/crypto/include/datatypes.h"
 #include "sw/device/lib/crypto/include/integrity.h"
 #include "sw/device/lib/crypto/include/mldsa.h"
@@ -26,20 +27,22 @@ static const uint8_t kSigPrefix[65] = {
 // Pattern bytes for the rest of signature in test #66: 0, 8, 0, 128 repeat.
 static const uint8_t kSigPattern[4] = {0, 8, 0, 128};
 
-static uint8_t pk_buf[2592];
+static uint32_t pk_words[648];
 static uint32_t sig_words[1157];
 
 bool test_main(void) {
   LOG_INFO("Starting ML-DSA-87 test #66 verification functest...");
+  CHECK_STATUS_OK(otcrypto_init(kOtcryptoKeySecurityLevelLow));
 
+  uint8_t *pk_buf = (uint8_t *)pk_words;
   // Build public key: 32 bytes of 42, followed by 2560 zeroes.
-  memset(pk_buf, 0, sizeof(pk_buf));
+  memset(pk_words, 0, sizeof(pk_words));
   memset(pk_buf, 42, 32);
 
   otcrypto_unblinded_key_t pk = {
       .key_mode = kOtcryptoKeyModePqcMldsa87,
-      .key_length = sizeof(pk_buf),
-      .key = (uint32_t *)pk_buf,
+      .key_length = sizeof(pk_words),
+      .key = pk_words,
   };
   pk.checksum = otcrypto_integrity_unblinded_checksum(&pk);
 
