@@ -287,19 +287,89 @@ static status_t run_dice_negative_tests(void) {
                                                   &attestation_seed)
             .value != OTCRYPTO_OK.value);
 
-  // Bad length inputs
-  otcrypto_hash_digest_t bad_len_digest = {.data = digest_data, .len = 7};
-  CHECK(otcrypto_ecdsa_p256_dice_sign_async_start(&valid_priv, bad_len_digest,
-                                                  &attestation_seed)
+  // Bad wrapped key length (neither 10 nor 24 words)
+  uint32_t dummy_pk_buf[16] = {0};
+  otcrypto_unblinded_key_t bad_pk = {
+      .key_mode = kOtcryptoKeyModeEcdsaP256,
+      .key_length = sizeof(dummy_pk_buf),
+      .key = dummy_pk_buf,
+  };
+  uint32_t bad_wrapped_data[15] = {0};
+  otcrypto_const_word32_buf_t bad_len_seed =
+      OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t, bad_wrapped_data, 15);
+  CHECK(otcrypto_ecdsa_p256_dice_keygen_async_start(&valid_priv, &bad_len_seed)
+            .value != OTCRYPTO_OK.value);
+
+  // Corrupted wrapped key tag (24 words, but bad MAC tag)
+  uint32_t corrupted_wrapped_data[24] = {0};
+  corrupted_wrapped_data[0] = 0x12345678;   // Nonce
+  corrupted_wrapped_data[8] = 0xabcdef01;   // Ciphertext
+  corrupted_wrapped_data[16] = 0xdeadbeef;  // Invalid tag
+  otcrypto_const_word32_buf_t corrupted_seed = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, corrupted_wrapped_data, 24);
+  CHECK(otcrypto_ecdsa_p256_dice_keygen(&valid_priv, &bad_pk, &corrupted_seed)
             .value != OTCRYPTO_OK.value);
 
   return OTCRYPTO_OK;
+}
+
+static status_t dice_wrapped_key_test(void) {
+  perso_tlv_cert_obj_t wrapped_cert = {0};
+  status_t status = get_stored_certificate(
+      "WRAPPED_CDI_1", 13, kNvmInfoPageDiceCerts, &wrapped_cert);
+  if (status_ok(status)) {
+    LOG_INFO("Found WRAPPED_CDI_1 in flash. Size: %d bytes",
+             wrapped_cert.cert_body_size);
+    if (wrapped_cert.cert_body_size >= 96) {
+      otcrypto_key_config_t kPrivateKeyConfig = {
+          .version = otcrypto_lib_version(),
+          .key_mode = kOtcryptoKeyModeEcdsaP256,
+          .key_length = 256 / 8,
+          .hw_backed = kHardenedBoolTrue,
+          .security_level = kOtcryptoKeySecurityLevelLow,
+      };
+
+      uint32_t keyblob[9];
+      otcrypto_blinded_key_t private_key = {
+          .config = kPrivateKeyConfig,
+          .keyblob_length = sizeof(keyblob),
+          .keyblob = keyblob,
+      };
+
+      TRY(otcrypto_hw_backed_attestation_key(
+          kDiceKeyCdi1.keymgr_diversifier->version,
+          kDiceKeyCdi1.keymgr_diversifier->salt, &private_key));
+
+      otcrypto_const_word32_buf_t wrapped_seed =
+          OTCRYPTO_MAKE_BUF(otcrypto_const_word32_buf_t,
+                            (const uint32_t *)wrapped_cert.cert_body_p, 24);
+
+      uint32_t pk[512 / 32] = {0};
+      otcrypto_unblinded_key_t public_key = {
+          .key_mode = kOtcryptoKeyModeEcdsaP256,
+          .key_length = sizeof(pk),
+          .key = pk,
+      };
+
+      TRY(otcrypto_ecdsa_p256_dice_keygen(&private_key, &public_key,
+                                          &wrapped_seed));
+      char buf[256];
+      hexstr_encode(buf, sizeof(buf), pk, sizeof(pk));
+      LOG_INFO("Unwrapped BL0 public key: %s\r", buf);
+    }
+  } else {
+    LOG_INFO(
+        "WRAPPED_CDI_1 not found in flash (not booted via ROM_EXT_IMM); "
+        "skipping flash unwrapping test.");
+  }
+  return OK_STATUS();
 }
 
 bool test_main(void) {
   status_t result = OTCRYPTO_OK;
   CHECK_STATUS_OK(test_setup());
   EXECUTE_TEST(result, dice_test);
+  EXECUTE_TEST(result, dice_wrapped_key_test);
   EXECUTE_TEST(result, run_dice_negative_tests);
   return status_ok(result);
 }

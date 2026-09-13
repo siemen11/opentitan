@@ -133,9 +133,16 @@ cc_library(
     deps = [
         ":config",
         ":keyblob",
+        "//hw/top:kmac_c_regs",
+        "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+        "//sw/device/lib/base:abs_mmio",
+        "//sw/device/lib/base:bitfield",
         "//sw/device/lib/crypto/drivers:hmac",
+        "//sw/device/lib/crypto/drivers:keymgr",
+        "//sw/device/lib/crypto/drivers:otbn",
         "//sw/device/lib/crypto/impl/ecc:p256",
         "//sw/device/lib/crypto/include:datatypes",
+        "//sw/otbn/crypto:dice_chain_app",
     ],
 )
 

@@ -8,6 +8,7 @@
 .globl xof_shake256_init
 .globl xof_sha3_256_init
 .globl xof_sha3_512_init
+.globl xof_kmac256_init
 .globl xof_absorb
 .globl xof_process
 .globl xof_squeeze24
@@ -65,6 +66,7 @@ interface.
 .set KMAC_SHAKE256_RATE, 17
 .set KMAC_SHA3_256_RATE, 4
 .set KMAC_SHA3_512_RATE, 8
+.set KMAC_KMAC256_RATE, 17
 
 /*
  * Register configuration values to instrument the KMAC interface.
@@ -129,6 +131,18 @@ xof_shake256_init:
   li x24, 0x2a0015
   addi x28, x0, KMAC_SHAKE256_RATE
   addi x29, x0, KMAC_SHAKE256_RATE
+  jal x0, _xof_shake_init
+
+xof_kmac256_init:
+  /*
+   * Configure KMAC-256 with EN_XOF=0, STRENGTH=L256(3'b010) and
+   * MODE=AppKMAC(2'b11). The upper fields hold the bitwise inverted values:
+   * EN_XOF_INV=1, STRENGTH_INV=3'b101, MODE_INV=2'b00.
+   * Value: (0x0b << 16) | 0x34 = 0x0b0034.
+   */
+  li x24, 0x0b0034
+  addi x28, x0, KMAC_KMAC256_RATE
+  addi x29, x0, KMAC_KMAC256_RATE
 _xof_shake_init:
   /* Set the timeout maximum value. Then poll until the KMAC is ready to start
      a session. Must come before the configuration is written. */

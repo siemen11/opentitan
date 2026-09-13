@@ -1,0 +1,11 @@
+# Expected values for full DICE Chain App test:
+# x8: Creator stage return status (0 = SUCCESS)
+x8 = 0
+# x9: BL0 unwrap return status (0 = SUCCESS)
+x9 = 0
+# x10: Tampered BL0 unwrap return status (1 = VERIFICATION_FAILED)
+x10 = 1
+# w3: Difference between recovered CDI1 and original CDI1 (must be 0)
+w3 = 0x0000000000000000000000000000000000000000000000000000000000000000
+# w4: Destination shares wiped upon tamper detection (must be 0)
+w4 = 0x0000000000000000000000000000000000000000000000000000000000000000

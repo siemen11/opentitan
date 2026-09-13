@@ -109,6 +109,21 @@ rom_error_t dice_chain_flush_nvm(void);
 OT_WARN_UNUSED_RESULT
 rom_error_t dice_chain_rom_ext_check(void);
 
+enum {
+  kDiceWrappedKeySize = 96,
+};
+
+/**
+ * Retrieve the KMAC-wrapped CDI_1 key envelope from the DICE flash page.
+ *
+ * @param[out] wrapped_key Pointer to buffer of at least kDiceWrappedKeySize
+ * bytes.
+ * @param[in,out] len Pointer to length of buffer, updated with actual size.
+ * @return errors encountered during the operation.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t dice_chain_get_wrapped_cdi1(uint8_t *wrapped_key, size_t *len);
+
 #ifdef __cplusplus
 }
 #endif

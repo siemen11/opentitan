@@ -510,3 +510,32 @@ otbn_library(
         "sha256_masked.s",
     ],
 )
+
+otbn_library(
+    name = "hmac_sha256_masked",
+    srcs = [
+        "hmac_sha256_masked.s",
+    ],
+)
+
+otbn_library(
+    name = "dice_kmac_wrap",
+    srcs = [
+        "dice_kmac_wrap.s",
+    ],
+)
+
+otbn_binary(
+    name = "dice_chain_app",
+    srcs = [
+        "dice_chain_app.s",
+    ],
+    deps = [
+        ":dice_kmac_wrap",
+        ":hmac_sha256_masked",
+        ":p256_base",
+        ":p256_isoncurve",
+        ":sha256_masked",
+        ":xof",
+    ],
+)

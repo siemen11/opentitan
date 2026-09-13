@@ -1,0 +1,9 @@
+# Expected values for DICE KMAC wrap/unwrap test:
+# w1: Recovered CDI1 (unmasked) must equal original test_cdi1
+w1 = 0x4242424242424242424242424242424242424242424242424242424242424242
+# w2: Must be 0 after tampering failure wipes destination buffers
+w2 = 0x0000000000000000000000000000000000000000000000000000000000000000
+# x8: Return status of valid unwrap (0 = SUCCESS)
+x8 = 0
+# x9: Return status of tampered unwrap (1 = VERIFICATION_FAILED)
+x9 = 1

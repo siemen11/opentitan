@@ -15,12 +15,39 @@
 #include "sw/device/silicon_creator/lib/cert/dice.h"
 #include "sw/device/silicon_creator/lib/dbg_print.h"
 #include "sw/device/silicon_creator/lib/drivers/kmac.h"
+#include "sw/device/silicon_creator/lib/drivers/otbn.h"
+#include "sw/device/silicon_creator/lib/drivers/rnd.h"
 #include "sw/device/silicon_creator/lib/error.h"
 #include "sw/device/silicon_creator/lib/manifest.h"
 #include "sw/device/silicon_creator/lib/nvm_ctrl.h"
 #include "sw/device/silicon_creator/lib/otbn_boot_services.h"
 #include "sw/device/silicon_creator/lib/ownership/datatypes.h"
 #include "sw/device/silicon_creator/manuf/base/perso_tlv_data.h"
+
+// Declare the OTBN application and symbols for the HMAC-based DICE app.
+OTBN_DECLARE_APP_SYMBOLS(dice_chain_app);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, mode);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, wfi_enable);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, status);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, uds_s0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, uds_s1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, rom_ext_kdf_s0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, rom_ext_kdf_s1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, bl0_kdf_s0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, bl0_kdf_s1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, nonce);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, cdi0_s0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, cdi0_s1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, cdi1_s0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, cdi1_s1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, wrapped_key);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, d0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, d1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, x);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, y);
+
+static const sc_otbn_app_t kOtbnAppDiceChainApp =
+    OTBN_APP_T_INIT(dice_chain_app);
 
 /**
  * Defines a class for parsing and building the DICE cert chain.
@@ -308,10 +335,111 @@ rom_error_t dice_chain_attestation_silicon(void) {
   return kErrorOk;
 }
 
+/**
+ * Formats a 64-byte Block 1 for NIST SP 800-108 KDF in Counter Mode:
+ *   Message = [1]_2 || "CDI_Attest" || 0x00 || Measurement[32] || [256]_2
+ * Followed by SHA-256 padding on 115 bytes (64 key + 51 message):
+ *   Padding = 0x80 || 0x00000000 || 0x0000000000000398 (920 bits)
+ */
+static void dice_kdf_sp800_108_format(const uint8_t *measurement,
+                                      uint32_t *out_words) {
+  uint8_t *raw = (uint8_t *)out_words;
+  memset(raw, 0, 64);
+  // [1]_2 = 0x00000001 (4 bytes big-endian)
+  raw[0] = 0x00;
+  raw[1] = 0x00;
+  raw[2] = 0x00;
+  raw[3] = 0x01;
+  // Label = "CDI_Attest" (10 bytes)
+  memcpy(&raw[4], "CDI_Attest", 10);
+  // Separator byte = 0x00 (byte 14, already 0)
+  // Context = 32-byte measurement
+  memcpy(&raw[15], measurement, 32);
+  // [L]_2 = 256 = 0x00000100 (4 bytes big-endian)
+  raw[47] = 0x00;
+  raw[48] = 0x00;
+  raw[49] = 0x01;
+  raw[50] = 0x00;
+  // SHA-256 padding delimiter
+  raw[51] = 0x80;
+  // Bit length: 920 bits = 0x0398 (bytes 56..63)
+  raw[62] = 0x03;
+  raw[63] = 0x98;
+}
+
 rom_error_t dice_chain_attestation_creator(
     keymgr_binding_value_t *rom_ext_measurement,
     const manifest_t *rom_ext_manifest) {
-  // Generate CDI_0 attestation keys and (potentially) update certificate.
+  // 1. Load the DICE chain OTBN application.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_load_app(kOtbnAppDiceChainApp));
+
+  // 2. Prepare parameters: mode = 1 (MODE_CREATOR_STAGE), wfi_enable = 1.
+  uint32_t mode = 1;
+  uint32_t wfi_en = 1;
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_write(1, &mode, OTBN_ADDR_T_INIT(dice_chain_app, mode)));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      1, &wfi_en, OTBN_ADDR_T_INIT(dice_chain_app, wfi_enable)));
+
+  // Zero UDS in DMEM so OTBN pulls it from sideloaded WSRs KEY_S0_L / KEY_S1_L.
+  uint32_t zero_buf[8] = {0};
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      8, zero_buf, OTBN_ADDR_T_INIT(dice_chain_app, uds_s0)));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      8, zero_buf, OTBN_ADDR_T_INIT(dice_chain_app, uds_s1)));
+
+  // Prepare 2-share SP 800-108 KDF message blocks for rom_ext and bl0 (64 bytes
+  // each).
+  uint32_t rom_ext_kdf_s0[16];
+  uint32_t rom_ext_kdf_s1[16];
+  uint32_t bl0_kdf_s0[16];
+  uint32_t bl0_kdf_s1[16];
+  uint32_t nonce_buf[8];
+
+  dice_kdf_sp800_108_format((const uint8_t *)rom_ext_measurement->data,
+                            rom_ext_kdf_s0);
+  dice_kdf_sp800_108_format((const uint8_t *)boot_measurements.bl0.data,
+                            bl0_kdf_s0);
+
+  for (size_t i = 0; i < 16; ++i) {
+    uint32_t mask = rnd_uint32();
+    rom_ext_kdf_s1[i] = mask;
+    rom_ext_kdf_s0[i] ^= mask;
+
+    mask = rnd_uint32();
+    bl0_kdf_s1[i] = mask;
+    bl0_kdf_s0[i] ^= mask;
+  }
+
+  for (size_t i = 0; i < 8; ++i) {
+    nonce_buf[i] = rnd_uint32();
+  }
+
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      16, rom_ext_kdf_s0, OTBN_ADDR_T_INIT(dice_chain_app, rom_ext_kdf_s0)));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      16, rom_ext_kdf_s1, OTBN_ADDR_T_INIT(dice_chain_app, rom_ext_kdf_s1)));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      16, bl0_kdf_s0, OTBN_ADDR_T_INIT(dice_chain_app, bl0_kdf_s0)));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      16, bl0_kdf_s1, OTBN_ADDR_T_INIT(dice_chain_app, bl0_kdf_s1)));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_write(
+      8, nonce_buf, OTBN_ADDR_T_INIT(dice_chain_app, nonce)));
+
+  // 3. Sideload UDS to OTBN.
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_state_check(kScKeymgrStateCreatorRootKey));
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_generate_key_otbn(
+      kDiceKeyUds.type, *kDiceKeyUds.keymgr_diversifier));
+
+  // 4. Enable OTBN WFI and start execution.
+  sc_otbn_wfi_enable();
+  SEC_MMIO_WRITE_INCREMENT(kScOtbnSecMmioExecute);
+  HARDENED_RETURN_IF_ERROR(sc_otbn_execute_start());
+
+  // 5. Wait for OTBN to pause at WFI.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_wait_for_pause());
+
+  // 6. While OTBN is paused, advance Keymgr to Owner stage.
   keymgr_binding_value_t seal_binding_value = {
       .data = {rom_ext_manifest->identifier, 0}};
   SEC_MMIO_WRITE_INCREMENT(kScKeymgrSecMmioSwBindingSet +
@@ -320,33 +448,82 @@ rom_error_t dice_chain_attestation_creator(
       /*sealing_binding=*/&seal_binding_value,
       /*attest_binding=*/rom_ext_measurement,
       rom_ext_manifest->max_key_version));
-  HARDENED_RETURN_IF_ERROR(otbn_boot_cert_ecc_p256_keygen(
-      kDiceKeyCdi0, &static_dice_cdi_0.cdi_0_pubkey_id,
-      &static_dice_cdi_0.cdi_0_pubkey));
+  sc_keymgr_sw_binding_unlock_wait();
 
-  // Switch page for the device generated CDI_0.
+  keymgr_binding_value_t owner_seal_binding = {
+      .data = {rom_ext_manifest->identifier, 0}};
+  SEC_MMIO_WRITE_INCREMENT(kScKeymgrSecMmioSwBindingSet +
+                           kScKeymgrSecMmioOwnerMaxVerSet);
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_owner_advance(
+      /*sealing_binding=*/&owner_seal_binding,
+      /*attest_binding=*/&boot_measurements.bl0,
+      rom_ext_manifest->max_key_version));
+  sc_keymgr_sw_binding_unlock_wait();
+
+  // 7. Sideload Owner key to KMAC and configure KMAC.
+  HARDENED_RETURN_IF_ERROR(sc_keymgr_generate_key(
+      kScKeymgrDestKmac, kDiceKeyCdi1.type, *kDiceKeyCdi1.keymgr_diversifier));
+  HARDENED_RETURN_IF_ERROR(kmac_kmac256_hw_configure());
+
+  // 8. Resume OTBN to wrap CDI_1.
+  sc_otbn_wfi_resume();
+
+  // 9. Wait for OTBN completion and check status.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_busy_wait_for_done());
+  uint32_t otbn_status = UINT32_MAX;
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(
+      1, OTBN_ADDR_T_INIT(dice_chain_app, status), &otbn_status));
+  HARDENED_CHECK_EQ(otbn_status, 0);
+
+  // 10. Read CDI_0 public key (x, y) from OTBN.
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(
+      kEcdsaP256PublicKeyCoordWords, OTBN_ADDR_T_INIT(dice_chain_app, x),
+      static_dice_cdi_0.cdi_0_pubkey.x));
+  HARDENED_RETURN_IF_ERROR(sc_otbn_dmem_read(
+      kEcdsaP256PublicKeyCoordWords, OTBN_ADDR_T_INIT(dice_chain_app, y),
+      static_dice_cdi_0.cdi_0_pubkey.y));
+
+  // Convert public key from LE to BE and compute pubkey_id.
+  util_reverse_bytes(static_dice_cdi_0.cdi_0_pubkey.x,
+                     kEcdsaP256PublicKeyCoordBytes);
+  util_reverse_bytes(static_dice_cdi_0.cdi_0_pubkey.y,
+                     kEcdsaP256PublicKeyCoordBytes);
+  hmac_sha256(&static_dice_cdi_0.cdi_0_pubkey,
+              sizeof(static_dice_cdi_0.cdi_0_pubkey),
+              &static_dice_cdi_0.cdi_0_pubkey_id);
+  util_reverse_bytes(&static_dice_cdi_0.cdi_0_pubkey_id,
+                     sizeof(static_dice_cdi_0.cdi_0_pubkey_id));
+
+  // 11. Read wrapped CDI_1 envelope (96 bytes) from OTBN.
+  uint8_t wrapped_key_buf[kDiceWrappedKeySize];
+  HARDENED_RETURN_IF_ERROR(
+      sc_otbn_dmem_read(kDiceWrappedKeySize / sizeof(uint32_t),
+                        OTBN_ADDR_T_INIT(dice_chain_app, wrapped_key),
+                        (uint32_t *)wrapped_key_buf));
+
+  // 12. Switch page for the device generated certificates.
   RETURN_IF_ERROR(dice_chain_load_nvm(kNvmInfoPageDiceCerts));
 
-  // Check if the current CDI_0 cert is valid.
+  // Check if current CDI_0 cert is valid.
   dice_chain.subject_pubkey_id = static_dice_cdi_0.cdi_0_pubkey_id;
   dice_chain.subject_pubkey = static_dice_cdi_0.cdi_0_pubkey;
   RETURN_IF_ERROR(dice_chain_load_cert_obj("CDI_0", /*name_size=*/6));
   if (dice_chain.cert_valid == kHardenedBoolFalse) {
-    // Update the cert page buffer.
     static_dice_cdi_0.cert_size = sizeof(static_dice_cdi_0.cert_data);
     HARDENED_RETURN_IF_ERROR(dice_cdi_0_cert_build(
         (hmac_digest_t *)rom_ext_measurement->data,
         rom_ext_manifest->security_version, &dice_chain_cdi_0_key_ids,
         &static_dice_cdi_0.uds_pubkey, &static_dice_cdi_0.cdi_0_pubkey,
         static_dice_cdi_0.cert_data, &static_dice_cdi_0.cert_size));
+    RETURN_IF_ERROR(dice_chain_push_cert("CDI_0", static_dice_cdi_0.cert_data,
+                                         static_dice_cdi_0.cert_size));
   } else {
-    // Replace UDS with CDI_0 key for endorsing next stage cert.
-    HARDENED_RETURN_IF_ERROR(otbn_boot_attestation_key_save(
-        kDiceKeyCdi0.keygen_seed_idx, kDiceKeyCdi0.type,
-        *kDiceKeyCdi0.keymgr_diversifier));
+    dice_chain_next_cert_obj();
   }
 
-  sc_keymgr_sw_binding_unlock_wait();
+  // Push WRAPPED_CDI_1 to flash page buffer.
+  RETURN_IF_ERROR(dice_chain_push_cert("WRAPPED_CDI_1", wrapped_key_buf,
+                                       kDiceWrappedKeySize));
 
   return kErrorOk;
 }
@@ -389,11 +566,16 @@ static rom_error_t dice_chain_attestation_check_cdi_0(void) {
   // Save cdi 0 to flash if regenerated.
   if (static_dice_cdi_0.cert_size != 0) {
     dbg_puts("warning: CDI_0 certificate not valid; updating\r\n");
-    return dice_chain_push_cert("CDI_0", static_dice_cdi_0.cert_data,
-                                static_dice_cdi_0.cert_size);
+    RETURN_IF_ERROR(dice_chain_push_cert("CDI_0", static_dice_cdi_0.cert_data,
+                                         static_dice_cdi_0.cert_size));
   } else {
-    return dice_chain_skip_cert_obj("CDI_0", /*name_size=*/6);
+    RETURN_IF_ERROR(dice_chain_skip_cert_obj("CDI_0", /*name_size=*/6));
   }
+
+  // Skip WRAPPED_CDI_1 object so tail_offset points to CDI_1.
+  RETURN_IF_ERROR(dice_chain_skip_cert_obj("WRAPPED_CDI_1", /*name_size=*/13));
+
+  return kErrorOk;
 }
 
 // Check the hash digest at the last of the page.
@@ -534,4 +716,44 @@ rom_error_t dice_chain_init(void) {
   nvm_ctrl_info_cfg_set(kNvmInfoPageFactoryCerts, kNvmCertInfoPageCfg);
   nvm_ctrl_cert_info_page_owner_restrict(kNvmInfoPageFactoryCerts);
   return kErrorOk;
+}
+
+rom_error_t dice_chain_get_wrapped_cdi1(uint8_t *wrapped_key, size_t *len) {
+  if (wrapped_key == NULL || len == NULL || *len < kDiceWrappedKeySize) {
+    return kErrorDiceInternal;
+  }
+  RETURN_IF_ERROR(dice_chain_load_nvm(kNvmInfoPageDiceCerts));
+
+  uint8_t *buf = dice_chain.page.data;
+  size_t offset = 0;
+  perso_blob_version_t blob_version;
+  RETURN_IF_ERROR(perso_tlv_get_blob_version(dice_chain.page.data,
+                                             sizeof(dice_chain.page.data),
+                                             &blob_version, &offset));
+  offset = util_round_up_to(offset, 3);
+
+  while (offset < sizeof(dice_chain.page.data)) {
+    perso_tlv_cert_obj_t obj;
+    rom_error_t err = perso_tlv_get_cert_obj(
+        &buf[offset], sizeof(dice_chain.page.data) - offset, blob_version,
+        &obj);
+    if (err != kErrorOk) {
+      break;
+    }
+    if (memcmp(obj.name, "WRAPPED_CDI_1", 13) == 0) {
+      if (obj.cert_body_size < kDiceWrappedKeySize) {
+        return kErrorDiceInternal;
+      }
+      memcpy(wrapped_key, obj.cert_body_p, kDiceWrappedKeySize);
+      *len = kDiceWrappedKeySize;
+      return kErrorOk;
+    }
+    size_t obj_size = util_size_to_words(obj.obj_size) * sizeof(uint32_t);
+    obj_size = util_round_up_to(obj_size, 3);
+    if (obj_size == 0) {
+      break;
+    }
+    offset += obj_size;
+  }
+  return kErrorPersoTlvCertObjNotFound;
 }

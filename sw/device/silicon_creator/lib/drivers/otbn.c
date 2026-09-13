@@ -264,3 +264,30 @@ rom_error_t sc_otbn_load_app(const sc_otbn_app_t app) {
   }
   return kErrorOk;
 }
+
+void sc_otbn_wfi_enable(void) {
+  uint32_t ctrl = abs_mmio_read32(otbn_base() + OTBN_CTRL_REG_OFFSET);
+  ctrl |= (1 << 1);  // wfi_enabled bit
+  abs_mmio_write32(otbn_base() + OTBN_CTRL_REG_OFFSET, ctrl);
+}
+
+void sc_otbn_wfi_resume(void) {
+  abs_mmio_write32(otbn_base() + OTBN_CMD_REG_OFFSET, kScOtbnCmdResume);
+}
+
+sc_otbn_status_t sc_otbn_status_get(void) {
+  return (sc_otbn_status_t)abs_mmio_read32(otbn_base() +
+                                           OTBN_STATUS_REG_OFFSET);
+}
+
+rom_error_t sc_otbn_wait_for_pause(void) {
+  sc_otbn_status_t status;
+  do {
+    status = sc_otbn_status_get();
+  } while (status != kScOtbnStatusPaused && status != kScOtbnStatusIdle &&
+           status != kScOtbnStatusLocked);
+  if (status == kScOtbnStatusLocked) {
+    return kErrorOtbnUnavailable;
+  }
+  return kErrorOk;
+}

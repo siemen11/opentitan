@@ -1,0 +1,8 @@
+# Expected value from NIST SP 800-108 Counter Mode KDF test vector:
+# Key: 32 bytes of 0x0b
+# Context: 32 bytes of 0x00..0x1f
+# Label: "CDI_Attest"
+# KDF: cc8b8fdc543685d3a22cdfa4908ae246230d59e5ac34a831c78764633be2a6db
+#
+# Represented as 256-bit register (little-endian byte order):
+w2 = 0xdba6e23b636487c731a834ace5590d2346e28a90a4df2ca2d3853654dc8f8bcc

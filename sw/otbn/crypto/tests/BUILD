@@ -1065,6 +1065,59 @@ otbn_sim_test(
     ],
 )
 
+otbn_sim_test(
+    name = "hmac_sha256_masked_test",
+    srcs = [
+        "hmac_sha256_masked_test.s",
+    ],
+    exp = "hmac_sha256_masked_test.exp",
+    deps = [
+        "//sw/otbn/crypto:hmac_sha256_masked",
+        "//sw/otbn/crypto:sha256_masked",
+    ],
+)
+
+otbn_sim_test(
+    name = "hmac_sha256_kdf_test",
+    srcs = [
+        "hmac_sha256_kdf_test.s",
+    ],
+    exp = "hmac_sha256_kdf_test.exp",
+    deps = [
+        "//sw/otbn/crypto:hmac_sha256_masked",
+        "//sw/otbn/crypto:sha256_masked",
+    ],
+)
+
+otbn_sim_test(
+    name = "dice_kmac_wrap_test",
+    srcs = [
+        "dice_kmac_wrap_test.s",
+    ],
+    exp = "dice_kmac_wrap_test.exp",
+    deps = [
+        "//sw/otbn/crypto:dice_kmac_wrap",
+        "//sw/otbn/crypto:xof",
+    ],
+)
+
+otbn_sim_test(
+    name = "dice_chain_app_test",
+    srcs = [
+        "dice_chain_app_test.s",
+        "//sw/otbn/crypto:dice_chain_app.s",
+    ],
+    exp = "dice_chain_app_test.exp",
+    deps = [
+        "//sw/otbn/crypto:dice_kmac_wrap",
+        "//sw/otbn/crypto:hmac_sha256_masked",
+        "//sw/otbn/crypto:p256_base",
+        "//sw/otbn/crypto:p256_isoncurve",
+        "//sw/otbn/crypto:sha256_masked",
+        "//sw/otbn/crypto:xof",
+    ],
+)
+
 otbn_consttime_test(
     name = "sha256_consttime",
     # All secrets are stored in DMEM; timing is permitted to depend on the

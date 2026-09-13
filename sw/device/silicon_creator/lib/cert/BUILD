@@ -254,6 +254,8 @@ cc_library(
     srcs = ["dice_chain.c"],
     hdrs = ["dice_chain.h"],
     deps = [
+        "//hw/top:otbn_c_regs",
+        "//sw/device/lib/base:abs_mmio",
         "//sw/device/lib/base:macros",
         "//sw/device/lib/base:memory",
         "//sw/device/lib/crypto/drivers:entropy",
@@ -270,7 +272,10 @@ cc_library(
         "//sw/device/silicon_creator/lib/drivers:hmac",
         "//sw/device/silicon_creator/lib/drivers:keymgr",
         "//sw/device/silicon_creator/lib/drivers:kmac",
+        "//sw/device/silicon_creator/lib/drivers:otbn",
+        "//sw/device/silicon_creator/lib/drivers:rnd",
         "//sw/device/silicon_creator/lib/ownership:datatypes",
         "//sw/device/silicon_creator/manuf/base:perso_tlv_data",
+        "//sw/otbn/crypto:dice_chain_app",
     ],
 )

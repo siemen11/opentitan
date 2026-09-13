@@ -4,13 +4,36 @@
 
 #include "sw/device/lib/crypto/include/ecc_p256.h"
 
+#include "sw/device/lib/base/abs_mmio.h"
+#include "sw/device/lib/base/bitfield.h"
 #include "sw/device/lib/base/hardened_memory.h"
 #include "sw/device/lib/crypto/drivers/hmac.h"
+#include "sw/device/lib/crypto/drivers/keymgr.h"
+#include "sw/device/lib/crypto/drivers/otbn.h"
 #include "sw/device/lib/crypto/impl/ecc/p256.h"
 #include "sw/device/lib/crypto/impl/keyblob.h"
 #include "sw/device/lib/crypto/include/config.h"
 #include "sw/device/lib/crypto/include/datatypes.h"
 #include "sw/device/lib/crypto/include/integrity.h"
+
+#include "hw/top/kmac_regs.h"
+#include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
+
+// Declare the OTBN application and symbols for the HMAC-based DICE app.
+OTBN_DECLARE_APP_SYMBOLS(dice_chain_app);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, mode);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, status);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, wrapped_key);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, d0);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, d1);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, x);
+OTBN_DECLARE_SYMBOL_ADDR(dice_chain_app, y);
+
+enum {
+  kDiceWrappedKeyWords = 96 / sizeof(uint32_t),
+};
+
+static hardened_bool_t dice_wrapped_keygen_active = kHardenedBoolFalse;
 
 // Module ID for status codes.
 #define MODULE_ID MAKE_MODULE_ID('p', '2', '5')
@@ -447,6 +470,114 @@ otcrypto_status_t otcrypto_ecdsa_p256_keygen_async_finalize(
   return otcrypto_eval_exit(OTCRYPTO_OK);
 }
 
+OT_NOINLINE
+OT_WARN_UNUSED_RESULT
+static status_t p256_dice_wrapped_keygen_start(
+    const otcrypto_blinded_key_t *private_key,
+    const otcrypto_const_word32_buf_t *wrapped_envelope) {
+  // 1. Sideload Keymgr Owner key to KMAC.
+  keymgr_diversification_t diversification;
+  HARDENED_TRY(keyblob_to_keymgr_attestation_diversification(private_key,
+                                                             &diversification));
+  HARDENED_TRY(keymgr_generate_key_kmac(diversification));
+
+  // 2. Configure KMAC CFG for AppKMAC / hardware-sideloaded KMAC-256.
+  uint32_t cfg_reg = abs_mmio_read32(TOP_EARLGREY_KMAC_BASE_ADDR +
+                                     KMAC_CFG_SHADOWED_REG_OFFSET);
+  cfg_reg = bitfield_bit32_write(cfg_reg, KMAC_CFG_SHADOWED_KMAC_EN_BIT, 1);
+  cfg_reg = bitfield_field32_write(cfg_reg, KMAC_CFG_SHADOWED_MODE_FIELD,
+                                   KMAC_CFG_SHADOWED_MODE_VALUE_CSHAKE);
+  cfg_reg = bitfield_field32_write(cfg_reg, KMAC_CFG_SHADOWED_KSTRENGTH_FIELD,
+                                   KMAC_CFG_SHADOWED_KSTRENGTH_VALUE_L256);
+  cfg_reg = bitfield_bit32_write(cfg_reg, KMAC_CFG_SHADOWED_SIDELOAD_BIT, 1);
+  abs_mmio_write32_shadowed(
+      TOP_EARLGREY_KMAC_BASE_ADDR + KMAC_CFG_SHADOWED_REG_OFFSET, cfg_reg);
+
+  // 3. Load dice_chain_app onto OTBN.
+  const otbn_app_t kOtbnAppDiceChainApp = OTBN_APP_T_INIT(dice_chain_app);
+  HARDENED_TRY(otbn_load_app(kOtbnAppDiceChainApp));
+
+  // 4. Set mode = 5 (MODE_BL0_UNWRAP_KEYGEN).
+  uint32_t mode = 5;
+  HARDENED_TRY(
+      otbn_dmem_write(1, &mode, OTBN_ADDR_T_INIT(dice_chain_app, mode)));
+
+  // 5. Write wrapped key envelope (24 words) to OTBN DMEM.
+  HARDENED_TRY(otbn_dmem_write(kDiceWrappedKeyWords, wrapped_envelope->data,
+                               OTBN_ADDR_T_INIT(dice_chain_app, wrapped_key)));
+
+  // 6. Execute OTBN.
+  return otbn_execute();
+}
+
+OT_NOINLINE
+OT_WARN_UNUSED_RESULT
+static status_t p256_dice_wrapped_keygen_finalize(
+    otcrypto_blinded_key_t *private_key, otcrypto_unblinded_key_t *public_key) {
+  // Check the lengths of caller-allocated buffers.
+  HARDENED_TRY(p256_private_key_length_check(private_key));
+  HARDENED_TRY(p256_public_key_length_check(public_key));
+  p256_point_t *pk = (p256_point_t *)public_key->key;
+
+  // Wait for OTBN to finish.
+  HARDENED_TRY(otbn_busy_wait_for_done());
+
+  // Check status (0 = success).
+  uint32_t otbn_status = UINT32_MAX;
+  HARDENED_TRY(otbn_dmem_read(1, OTBN_ADDR_T_INIT(dice_chain_app, status),
+                              &otbn_status));
+  if (launder32(otbn_status) != 0) {
+    otbn_dmem_sec_wipe();
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_CHECK_EQ(otbn_status, 0);
+
+  // Read public key x and y from OTBN DMEM.
+  HARDENED_TRY(otbn_dmem_read(kP256CoordWords,
+                              OTBN_ADDR_T_INIT(dice_chain_app, x), pk->x));
+  HARDENED_TRY(otbn_dmem_read(kP256CoordWords,
+                              OTBN_ADDR_T_INIT(dice_chain_app, y), pk->y));
+
+  // If private key is not hw_backed, retrieve private scalar shares.
+  if (launder32(private_key->config.hw_backed) == kHardenedBoolFalse) {
+    HARDENED_CHECK_EQ(private_key->config.hw_backed, kHardenedBoolFalse);
+
+    // Randomize the keyblob before writing secret data.
+    HARDENED_TRY(hardened_memshred(private_key->keyblob,
+                                   keyblob_num_words(private_key->config)));
+
+    p256_masked_scalar_t private_scalar;
+    HARDENED_TRY(otbn_dmem_read(kP256MaskedScalarShareWords,
+                                OTBN_ADDR_T_INIT(dice_chain_app, d0),
+                                private_scalar.share0));
+    HARDENED_TRY(otbn_dmem_read(kP256MaskedScalarShareWords,
+                                OTBN_ADDR_T_INIT(dice_chain_app, d1),
+                                private_scalar.share1));
+    private_scalar.checksum = p256_masked_scalar_checksum(&private_scalar);
+    HARDENED_CHECK_EQ(p256_masked_scalar_checksum_check(&private_scalar),
+                      kHardenedBoolTrue);
+    HARDENED_TRY(hardened_memcpy(private_key->keyblob, private_scalar.share0,
+                                 kP256MaskedScalarTotalShareWords));
+    HARDENED_CHECK_EQ(
+        hardened_memeq(private_scalar.share0, private_key->keyblob,
+                       kP256MaskedScalarTotalShareWords),
+        kHardenedBoolTrue);
+
+    hardened_memshred((uint32_t *)&private_scalar,
+                      kP256MaskedScalarTotalShareWords);
+  }
+
+  // Wipe DMEM.
+  HARDENED_TRY(otbn_dmem_sec_wipe());
+
+  // Set the key checksums.
+  private_key->checksum = otcrypto_integrity_blinded_checksum(private_key);
+  public_key->checksum = otcrypto_integrity_unblinded_checksum(public_key);
+
+  // Clear KMAC sideload slot.
+  return keymgr_sideload_clear_kmac();
+}
+
 otcrypto_status_t otcrypto_ecdsa_p256_dice_keygen_async_start(
     const otcrypto_blinded_key_t *private_key,
     const otcrypto_const_word32_buf_t *attestation_seed) {
@@ -462,6 +593,15 @@ otcrypto_status_t otcrypto_ecdsa_p256_dice_keygen_async_start(
   }
   HARDENED_CHECK_EQ(private_key->config.key_mode, kOtcryptoKeyModeEcdsaP256);
 
+  if (attestation_seed != NULL &&
+      attestation_seed->len == kDiceWrappedKeyWords) {
+    dice_wrapped_keygen_active = kHardenedBoolTrue;
+    HARDENED_TRY_WIPE_DMEM(
+        p256_dice_wrapped_keygen_start(private_key, attestation_seed));
+    return otcrypto_eval_exit(OTCRYPTO_OK);
+  }
+
+  dice_wrapped_keygen_active = kHardenedBoolFalse;
   HARDENED_TRY(load_attestation_diversification(private_key));
   HARDENED_TRY_WIPE_DMEM(
       p256_sideload_attestation_keygen_start(attestation_seed));
@@ -471,6 +611,31 @@ otcrypto_status_t otcrypto_ecdsa_p256_dice_keygen_async_start(
 
 otcrypto_status_t otcrypto_ecdsa_p256_dice_keygen_async_finalize(
     otcrypto_blinded_key_t *private_key, otcrypto_unblinded_key_t *public_key) {
+#ifndef OTCRYPTO_DISABLE_NULL_CHECKS
+  if (private_key == NULL || private_key->keyblob == NULL ||
+      public_key == NULL || public_key->key == NULL) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+#endif
+  if (otcrypto_integrity_blinded_key_check(private_key) != kHardenedBoolTrue) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+
+  // Check the key modes.
+  if (launder32(private_key->config.key_mode) != kOtcryptoKeyModeEcdsaP256 ||
+      launder32(public_key->key_mode) != kOtcryptoKeyModeEcdsaP256) {
+    return OTCRYPTO_BAD_ARGS;
+  }
+  HARDENED_CHECK_EQ(private_key->config.key_mode, kOtcryptoKeyModeEcdsaP256);
+  HARDENED_CHECK_EQ(public_key->key_mode, kOtcryptoKeyModeEcdsaP256);
+
+  if (dice_wrapped_keygen_active == kHardenedBoolTrue) {
+    dice_wrapped_keygen_active = kHardenedBoolFalse;
+    HARDENED_TRY_WIPE_DMEM(
+        p256_dice_wrapped_keygen_finalize(private_key, public_key));
+    return otcrypto_eval_exit(OTCRYPTO_OK);
+  }
+
   return otcrypto_ecdsa_p256_keygen_async_finalize(private_key, public_key);
 }
 

@@ -49,6 +49,7 @@ typedef enum sc_otbn_cmd {
   kScOtbnCmdExecute = 0xd8,
   kScOtbnCmdSecWipeDmem = 0xc3,
   kScOtbnCmdSecWipeImem = 0x1e,
+  kScOtbnCmdResume = 0xa6,
 } sc_otbn_cmd_t;
 
 /**
@@ -62,6 +63,7 @@ typedef enum sc_otbn_status {
   kScOtbnStatusBusySecWipeDmem = 0x02,
   kScOtbnStatusBusySecWipeImem = 0x03,
   kScOtbnStatusBusySecWipeInt = 0x04,
+  kScOtbnStatusPaused = 0x05,
   kScOtbnStatusLocked = 0xFF,
 } sc_otbn_status_t;
 
@@ -321,6 +323,29 @@ rom_error_t sc_otbn_imem_sec_wipe(void);
  */
 OT_WARN_UNUSED_RESULT
 rom_error_t sc_otbn_dmem_sec_wipe(void);
+
+/**
+ * Enables WFI instruction execution in OTBN.
+ */
+void sc_otbn_wfi_enable(void);
+
+/**
+ * Resumes OTBN execution after a WFI pause.
+ */
+void sc_otbn_wfi_resume(void);
+
+/**
+ * Gets the current status of OTBN.
+ */
+OT_WARN_UNUSED_RESULT
+sc_otbn_status_t sc_otbn_status_get(void);
+
+/**
+ * Waits until OTBN enters StatusPaused (WFI pause), StatusIdle, or
+ * StatusLocked.
+ */
+OT_WARN_UNUSED_RESULT
+rom_error_t sc_otbn_wait_for_pause(void);
 
 #ifdef __cplusplus
 }

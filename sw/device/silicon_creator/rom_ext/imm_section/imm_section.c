@@ -50,6 +50,10 @@ static rom_error_t imm_section_start(void) {
   HARDENED_RETURN_IF_ERROR(
       dice_chain_attestation_creator(&boot_measurements.rom_ext, rom_ext));
 
+  // Flush the updated certificate chain and wrapped envelope to flash before
+  // executing mutable ROM_EXT.
+  HARDENED_RETURN_IF_ERROR(dice_chain_flush_nvm());
+
   // Make mutable part executable.
   HARDENED_RETURN_IF_ERROR(imm_section_epmp_mutable_rx(rom_ext));
 

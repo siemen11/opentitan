@@ -1,0 +1,8 @@
+# Expected value from HMAC-SHA256 test vector:
+# Key: 32 bytes of 0x0b
+# Message: "OpenTitan DICE Attestation Test!"
+# HMAC: a9afbc4cb44991f647c5d5ed62d8210327ed173509aca1fe38d5896907461102
+#
+# Represented as 256-bit register (little-endian byte order):
+w2 = 0x021146076989d538fea1ac093517ed270321d862edd5c547f69149b44cbcafa9
+
