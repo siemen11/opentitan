@@ -1,0 +1,39 @@
+diff --git a/hw/ip/tlul/adapter_sram.core b/hw/ip/tlul/adapter_sram.core
+index 809d650a5c..c2c15209e9 100644
+--- a/hw/ip/tlul/adapter_sram.core
++++ b/hw/ip/tlul/adapter_sram.core
+@@ -10,6 +10,7 @@ filesets:
+     depend:
+       - lowrisc:prim:util
+       - lowrisc:prim:assert
++      - lowrisc:prim:sparse_fsm
+       - lowrisc:tlul:common
+     files:
+       - rtl/tlul_sram_byte.sv
+diff --git a/hw/ip/tlul/rtl/tlul_sram_byte.sv b/hw/ip/tlul/rtl/tlul_sram_byte.sv
+index c7bd81a7ec..09c23c9b2e 100644
+--- a/hw/ip/tlul/rtl/tlul_sram_byte.sv
++++ b/hw/ip/tlul/rtl/tlul_sram_byte.sv
+@@ -3,6 +3,7 @@
+ // SPDX-License-Identifier: Apache-2.0
+ 
+ `include "prim_assert.sv"
++`include "prim_flop_macros.sv"
+ 
+ /**
+  * Tile-Link UL adapter for SRAM-like devices
+@@ -105,13 +106,7 @@ module tlul_sram_byte import tlul_pkg::*; #(
+     logic tl_i_fifo_intg_err, tl_intg_err;
+     state_e state_d, state_q;
+ 
+-    always_ff @(posedge clk_i or negedge rst_ni) begin
+-      if (!rst_ni) begin
+-        state_q <= StPassThru;
+-      end else begin
+-        state_q <= state_d;
+-      end
+-    end
++    `PRIM_FLOP_SPARSE_FSM(u_state_regs, state_d, state_q, state_e, StPassThru)
+ 
+     // transaction qualifying signals
+     logic a_ack;  // upstream a channel acknowledgement
