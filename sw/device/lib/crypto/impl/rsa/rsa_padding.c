@@ -10,6 +10,7 @@
 #include "sw/device/lib/base/random_order.h"
 #include "sw/device/lib/crypto/drivers/entropy.h"
 #include "sw/device/lib/crypto/drivers/rv_core_ibex.h"
+#include "sw/device/lib/crypto/impl/cmvp.h"
 #include "sw/device/lib/crypto/impl/hash.h"
 #include "sw/device/lib/crypto/include/integrity.h"
 
@@ -286,29 +287,33 @@ static status_t reverse_bytes(size_t input_len, uint32_t *input) {
  * another digest of the same type.
  *
  * @param message_digest Message digest to encode.
- * @param salt Salt value.
- * @param salt_len Length of the salt in 32-bit words.
+ * @param salt Salt value (may be NULL if `salt_bytelen == 0`).
+ * @param salt_bytelen Length of the salt in bytes.
  * @param[out] h Resulting digest, H.
  */
 OT_WARN_UNUSED_RESULT
 static status_t pss_construct_h(const otcrypto_hash_digest_t message_digest,
-                                const uint32_t *salt, size_t salt_len,
+                                const unsigned char *salt, size_t salt_bytelen,
                                 uint32_t *h) {
   // Create a buffer for M' = (0x0000000000000000 || digest || salt).
-  size_t m_prime_wordlen = 2 + message_digest.len + salt_len;
-  uint32_t m_prime[m_prime_wordlen];
+  size_t digest_bytelen = message_digest.len * sizeof(uint32_t);
+  size_t m_prime_bytelen = 8 + digest_bytelen + salt_bytelen;
+  uint32_t m_prime[ceil_div(m_prime_bytelen, sizeof(uint32_t))];
   m_prime[0] = 0;
   m_prime[1] = 0;
   uint32_t *digest_dst = &m_prime[2];
-  uint32_t *salt_dst = digest_dst + message_digest.len;
+  unsigned char *salt_dst = (unsigned char *)(digest_dst + message_digest.len);
   HARDENED_TRY(
       hardened_memcpy(digest_dst, message_digest.data, message_digest.len));
-  if (salt_len > 0) {
-    HARDENED_TRY(hardened_memcpy(salt_dst, salt, salt_len));
+  if (salt_bytelen > 0) {
+    HARDENED_TRY(randomized_bytecopy(salt_dst, salt, salt_bytelen));
+    // Check whether a FI tampered copying the bytes.
+    HARDENED_CHECK_EQ(consttime_memeq_byte(salt, salt_dst, salt_bytelen),
+                      kHardenedBoolTrue);
   }
 
   // Construct H = Hash(M').
-  return hash(message_digest.mode, (unsigned char *)m_prime, sizeof(m_prime),
+  return hash(message_digest.mode, (unsigned char *)m_prime, m_prime_bytelen,
               h);
 }
 
@@ -392,7 +397,8 @@ status_t rsa_padding_pss_encode(const otcrypto_hash_digest_t message_digest,
 
   // Construct H = Hash(0x0000000000000000 || digest || salt).
   uint32_t h[message_digest.len];
-  HARDENED_TRY(pss_construct_h(message_digest, salt, salt_len, h));
+  HARDENED_TRY(pss_construct_h(message_digest, (const unsigned char *)salt,
+                               salt_bytelen, h));
 
   // Construct DB = 00...00 || 0x01 || salt.
   size_t db_bytelen = encoded_message_bytelen - digest_bytelen - 1;
@@ -440,11 +446,11 @@ status_t rsa_padding_pss_verify(const otcrypto_hash_digest_t message_digest,
   // Initialize the result to false.
   *result = kHardenedBoolFalse;
 
-  // Check that the message length is long enough.
+  // Check that the encoded message is long enough for at least a 0-byte salt
+  // (RFC 8017, section 9.1.2, step 3: emLen >= hLen + sLen + 2).
   size_t digest_bytelen = message_digest.len * sizeof(uint32_t);
-  size_t salt_bytelen = digest_bytelen;
   size_t encoded_message_bytelen = encoded_message_len * sizeof(uint32_t);
-  if (encoded_message_bytelen < salt_bytelen + digest_bytelen + 2) {
+  if (encoded_message_bytelen < digest_bytelen + 2) {
     // COVERAGE (SW ERR) This is an internal function which is called with
     // correct inputs that do not trigger this return.
     return OTCRYPTO_BAD_ARGS;
@@ -480,59 +486,68 @@ status_t rsa_padding_pss_verify(const otcrypto_hash_digest_t message_digest,
       consttime_memeq_byte(encoded_message_bytes + db_bytelen, h, sizeof(h)),
       kHardenedBoolTrue);
 
-  // Compute the mask = MFG(H, emLen - hLen - 1). Zero the last bytes if
-  // needed.
-  uint32_t mask[ARRAYSIZE(db)];
-  HARDENED_TRY(mgf1(message_digest.mode, (unsigned char *)h, sizeof(h),
-                    db_bytelen, mask));
-  if (sizeof(mask) > db_bytelen) {
-    memset(((unsigned char *)mask) + db_bytelen, 0, sizeof(mask) - db_bytelen);
-  }
+  // Compute the mask = MGF1(H, emLen - hLen - 1) and unmask DB.
+  {
+    uint32_t mask[ARRAYSIZE(db)];
+    HARDENED_TRY(mgf1(message_digest.mode, (unsigned char *)h, sizeof(h),
+                      db_bytelen, mask));
+    if (sizeof(mask) > db_bytelen) {
+      memset(((unsigned char *)mask) + db_bytelen, 0,
+             sizeof(mask) - db_bytelen);
+    }
 
-  // Unmask the "DB" value.
-  HARDENED_TRY(hardened_xor_in_place(db, mask, ARRAYSIZE(db)));
+    // Unmask the "DB" value.
+    HARDENED_TRY(hardened_xor_in_place(db, mask, ARRAYSIZE(db)));
+  }
 
   // Set the most significant bit of the first byte of maskedDB to 0.
   // Corresponds to RFC 8017, section 9.1.2 step 9 (emBits is modLen - 1).
   unsigned char *db_bytes = (unsigned char *)db;
   db_bytes[0] &= 0x7f;
 
-  // Check that DB starts with all zeroes followed by a single 1 byte. Copy in
-  // enough trailing bytes to fill the last word, so that we can use
-  // `hardened_memeq` here.
-  size_t padding_bytelen = db_bytelen - salt_bytelen;
-  uint32_t exp_padding[ceil_div(padding_bytelen, sizeof(uint32_t))];
-  unsigned char *exp_padding_bytes = (unsigned char *)exp_padding;
-  memset(exp_padding, 0, padding_bytelen - 1);
-  exp_padding_bytes[padding_bytelen - 1] = 0x01;
-  HARDENED_TRY(randomized_bytecopy(exp_padding_bytes + padding_bytelen,
-                                   db_bytes + padding_bytelen,
-                                   sizeof(exp_padding) - padding_bytelen));
-  // Check whether a FI tampered copying the bytes.
-  HARDENED_CHECK_EQ(consttime_memeq_byte(db_bytes + padding_bytelen,
-                                         exp_padding_bytes + padding_bytelen,
-                                         sizeof(exp_padding) - padding_bytelen),
-                    kHardenedBoolTrue);
+  // Locate the salt in DB = 0x00...0x00 || 0x01 || salt by scanning for the
+  // first 0x01 byte in constant time and verifying all preceding bytes are 0.
+  uint32_t salt_start_idx = 0;
+  ct_bool32_t decode_failure = 0;
+  size_t i = 0;
+  for (; launderw(i) < db_bytelen; i = launderw(i) + 1) {
+    uint32_t byte = db_bytes[i];
+    ct_bool32_t is_one = ct_seq32(byte, 0x01);
+    ct_bool32_t is_before_salt = ct_seqz32(salt_start_idx);
+    ct_bool32_t is_salt_start = is_one & is_before_salt;
+    salt_start_idx =
+        ct_cmov32(is_salt_start, (uint32_t)(i + 1), salt_start_idx);
+    ct_bool32_t is_zero = ct_seqz32(byte);
+    ct_bool32_t padding_failure = is_before_salt & (~is_zero) & (~is_one);
+    decode_failure |= padding_failure;
+  }
+  HARDENED_CHECK_EQ(i, db_bytelen);
+  HARDENED_CHECK_LE(salt_start_idx, db_bytelen);
 
-  hardened_bool_t padding_eq =
-      hardened_memeq(db, exp_padding, ARRAYSIZE(exp_padding));
-  if (padding_eq != kHardenedBoolTrue) {
+  // Fail if no 0x01 separator was found.
+  decode_failure |= ct_seqz32(salt_start_idx);
+
+  if (launder32(decode_failure) != 0) {
     *result = kHardenedBoolFalse;
     return OTCRYPTO_OK;
   }
+  HARDENED_CHECK_EQ(decode_failure, 0);
+  HARDENED_CHECK_NE(salt_start_idx, 0);
 
-  // Extract the salt.
-  uint32_t salt[message_digest.len];
-  HARDENED_TRY(randomized_bytecopy(salt, db_bytes + db_bytelen - salt_bytelen,
-                                   sizeof(salt)));
-  // Check whether a FI tampered copying the bytes.
-  HARDENED_CHECK_EQ(consttime_memeq_byte(db_bytes + db_bytelen - salt_bytelen,
-                                         salt, sizeof(salt)),
-                    kHardenedBoolTrue);
+  size_t salt_bytelen = db_bytelen - salt_start_idx;
+
+  // Per FIPS 186-5, section 5.4, approved RSASSA-PSS requires
+  // 0 <= sLen <= hLen. Override the CMVP service indicator if a larger salt
+  // length is used.
+  if (launderw(salt_bytelen) > digest_bytelen) {
+    OTCRYPTO_CMVP_OVERRIDE_NOT_APPROVED();
+  }
 
   // Construct the expected value of H and compare.
   uint32_t exp_h[message_digest.len];
-  HARDENED_TRY(pss_construct_h(message_digest, salt, ARRAYSIZE(salt), exp_h));
+  HARDENED_TRY(pss_construct_h(
+      message_digest, salt_bytelen > 0 ? db_bytes + salt_start_idx : NULL,
+      salt_bytelen, exp_h));
   *result = hardened_memeq(h, exp_h, ARRAYSIZE(exp_h));
   // Clear the register file in order to ensure we clear any kHardenedBoolTrue
   // value in there

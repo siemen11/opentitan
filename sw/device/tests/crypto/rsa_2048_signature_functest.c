@@ -5,6 +5,7 @@
 #include "sw/device/lib/base/memory.h"
 #include "sw/device/lib/crypto/drivers/otbn.h"
 #include "sw/device/lib/crypto/impl/status.h"
+#include "sw/device/lib/crypto/include/cmvp.h"
 #include "sw/device/lib/crypto/include/config.h"
 #include "sw/device/lib/crypto/include/cryptolib_build_info.h"
 #include "sw/device/lib/crypto/include/entropy_src.h"
@@ -574,10 +575,14 @@ static status_t run_signature_negative_tests(void) {
 
 status_t all_hashes_sign_verify_test(void) {
   static const otcrypto_hash_mode_t kHashModes[] = {
-      kOtcryptoHashModeSha1,     kOtcryptoHashModeSha256,
-      kOtcryptoHashModeSha384,   kOtcryptoHashModeSha512,
-      kOtcryptoHashModeSha3_224, kOtcryptoHashModeSha3_256,
-      kOtcryptoHashModeSha3_384, kOtcryptoHashModeSha3_512,
+#ifndef FIPS_MODE
+      // SHA-1 is rejected by `rsa_digest_check_fips` for RSA-2048 in FIPS mode.
+      kOtcryptoHashModeSha1,
+#endif
+      kOtcryptoHashModeSha256,   kOtcryptoHashModeSha384,
+      kOtcryptoHashModeSha512,   kOtcryptoHashModeSha3_224,
+      kOtcryptoHashModeSha3_256, kOtcryptoHashModeSha3_384,
+      kOtcryptoHashModeSha3_512,
   };
 
   for (size_t i = 0; i < ARRAYSIZE(kHashModes); i++) {
@@ -1020,6 +1025,132 @@ status_t pkcs1v15_null_hash_and_raw_sign_verify_test(void) {
   return OK_STATUS();
 }
 
+// OpenSSL-verified RSASSA-PSS-SHA256 signatures of `kTestMessage` using
+// non-default salt lengths: 0 bytes (FIPS-approved), 17 bytes (non-word-aligned
+// FIPS-approved), 33 bytes (hLen + 1, non-FIPS), and 222 bytes (TPM2 max-salt
+// emLen - hLen - 2, non-FIPS).
+static const uint32_t kValidSignaturePssSalt0[kRsa2048NumWords] = {
+    0x98742e08, 0x434708a7, 0xb9ebbeaa, 0x7d76a19e, 0xff3eab68, 0x20f27f3d,
+    0x9a6ad11c, 0x698e20fa, 0x64a6d03a, 0x769c40e2, 0x2fdbce7a, 0xad80c5c8,
+    0x7da04ad3, 0xa9b749d1, 0xb228476c, 0x6c5cd1de, 0x8764dc6f, 0x53ea31e8,
+    0x9a2f7db6, 0x6de5a3da, 0x29bbcade, 0x40240d47, 0x45623779, 0xaf9b99d4,
+    0xb2b741ea, 0x549ac730, 0x315bb780, 0xafce7c65, 0xbb1dff12, 0xfc832316,
+    0x728cbd42, 0x484dd24e, 0x0d631530, 0x96e28fb9, 0x0edcec09, 0x71c9800f,
+    0xc32f26f3, 0xaa9fe5d2, 0xb7e2eaa9, 0x2b6d0a46, 0x54e402c9, 0xd8b42177,
+    0x6b437924, 0x2ff174a7, 0x0f024cd8, 0x7f23b123, 0x1a9e59a9, 0x08f53b72,
+    0x4552120a, 0x19253598, 0xddaaad01, 0x70563c20, 0x1567ff12, 0xeec46ce0,
+    0x761d8ec9, 0xa6998858, 0x381881a5, 0x5301346e, 0xa5949aaf, 0x2cbdb7cd,
+    0x8cd0093d, 0xc9852e5b, 0x58b43028, 0x7cc19ee6,
+};
+
+static const uint32_t kValidSignaturePssSalt17[kRsa2048NumWords] = {
+    0x1bf4a0df, 0x186bb463, 0xdc469783, 0xa2e83dd3, 0x3b35874e, 0xe204156d,
+    0x8134b4ef, 0xabfdcb03, 0x13c9cc00, 0x315e068a, 0x6c2d730c, 0x4c2031eb,
+    0xde9cd537, 0x0564b367, 0xd80b77f9, 0x3271e780, 0x3f366b6a, 0xf0c79473,
+    0x37f9ede5, 0x122c615d, 0xeab632e0, 0x83c3d3ce, 0x29f9bee6, 0x11fac06b,
+    0xd7b7fa6a, 0x50769b8c, 0xd1ffe312, 0x3f3cbce8, 0x713fc040, 0x18d6d0f6,
+    0x0e0dc552, 0x619c31d6, 0x46e28577, 0xccaba1d5, 0x79998d28, 0xa7d10962,
+    0x7f81451e, 0x933a66f4, 0x6d71ea3f, 0x677427c4, 0xcae7d516, 0xa7ef0f36,
+    0x4ea7e8c4, 0xa044a17f, 0x3bd15bc8, 0x42951b61, 0xd3868a82, 0xf9c248c8,
+    0x98077c4a, 0x39b3c7c5, 0xf548c793, 0xac8041e5, 0x8bca6213, 0x23cf4806,
+    0xceb1c076, 0x75d9119d, 0x7d650d25, 0x56d055d1, 0xe95bb658, 0x51c1506b,
+    0x4c734986, 0x6bad5e35, 0x28347a02, 0x8390169c,
+};
+
+static const uint32_t kValidSignaturePssSalt33[kRsa2048NumWords] = {
+    0xe286dbbd, 0xe1b331d9, 0x0d3507bd, 0xef212f14, 0x4f388fa0, 0xb066a62e,
+    0x0f4d09d3, 0xe1a9a869, 0x19f88c89, 0x75db46c1, 0x591b996e, 0x3ea68405,
+    0x184a49c4, 0x5f8954c1, 0x18cc95d1, 0x277a9781, 0x00caeb5f, 0xe7340489,
+    0x404597a4, 0x2c01782d, 0x47414ef9, 0xa32eb793, 0x3d53740d, 0xd9172f4f,
+    0xc23b4fac, 0x33fc08d3, 0xd6018950, 0x0f359f90, 0x2c2f51ee, 0xcc02543a,
+    0x6e51449a, 0xfd8cb503, 0x7ec9ae6c, 0x7a2f3408, 0xcf12c347, 0x6e594353,
+    0x24e033ad, 0x5853a435, 0xa40677c1, 0x985d4403, 0x01ee6227, 0x4f2d41eb,
+    0x5f9f3156, 0x4058542c, 0x59fae1c3, 0x52107dab, 0x377f2091, 0x49889b6f,
+    0xc76696ab, 0x579e87ea, 0x47489335, 0x94ff3ce7, 0x348efbfa, 0x56baa0bd,
+    0x6d055dfd, 0x3c706bbf, 0x1da7b890, 0xff7c3c29, 0x7c564cba, 0xf6e9b1e2,
+    0x24a4cbd4, 0x9feef83c, 0x160db6c5, 0xa2b7c694,
+};
+
+static const uint32_t kValidSignaturePssSalt222[kRsa2048NumWords] = {
+    0xb35720ad, 0x00f8ac4b, 0xd4df3f92, 0xd225ebfb, 0xc72bb351, 0x9ce063a3,
+    0x9a097222, 0x87235ff8, 0x67650746, 0xf9643add, 0xcedd7716, 0x00e16ff0,
+    0x64da6875, 0xc5eaa439, 0x98b20593, 0x4ffe0cbf, 0x4d471c00, 0x3794ad35,
+    0x5f4eb765, 0xf2900ba6, 0x45ff61d1, 0x572b08bc, 0x5c983efc, 0xe035041d,
+    0x4cac525f, 0x403be45e, 0xe7f64f4c, 0x37e6cced, 0xa4a0ac3e, 0xcab65267,
+    0xe9522558, 0x760ed5ee, 0x5f53668a, 0x522e6fec, 0x39f56769, 0x4a5c4a68,
+    0x8bcd340b, 0x9f0492ce, 0xe5b0ddfa, 0x3a8c7a90, 0xfda30217, 0xa65fb296,
+    0xc4862391, 0xa4eca502, 0x07f13d59, 0x5e18cf8e, 0x0a72c8cd, 0xcfb818b9,
+    0x47a51024, 0xda356831, 0x5b5f909c, 0xa3b616d3, 0x01bb0f93, 0xb15670fc,
+    0x8e2449a3, 0x9a34d2c6, 0xdda24bd6, 0x30bbc3d1, 0x6a295d88, 0xd330d037,
+    0x388b411a, 0x439e5312, 0x5b5dcd7f, 0x0be54c6f,
+};
+
+status_t pss_verify_custom_salt_test(void) {
+  otcrypto_const_word32_buf_t modulus = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_word32_buf_t, kTestModulus, ARRAYSIZE(kTestModulus));
+  uint32_t public_key_data[kOtcryptoRsa2048PublicKeyBytes / sizeof(uint32_t)];
+  otcrypto_unblinded_key_t public_key = {
+      .key_mode = kOtcryptoKeyModeRsaSignPss,
+      .key_length = sizeof(public_key_data),
+      .key = public_key_data,
+  };
+  TRY(otcrypto_rsa_public_key_construct(kOtcryptoRsaSize2048, &modulus,
+                                        &public_key));
+
+  otcrypto_const_byte_buf_t msg_buf = OTCRYPTO_MAKE_BUF(
+      otcrypto_const_byte_buf_t, kTestMessage, kTestMessageLen);
+
+  const struct {
+    const uint32_t *sig;
+    bool fips_approved;
+  } kVectors[] = {
+      {kValidSignaturePssSalt0, true},    {kValidSignaturePssSalt17, true},
+      {kValidSignaturePss, true},         {kValidSignaturePssSalt33, false},
+      {kValidSignaturePssSalt222, false},
+  };
+
+  for (size_t i = 0; i < ARRAYSIZE(kVectors); ++i) {
+    hardened_bool_t verification_result = kHardenedBoolFalse;
+    TRY(run_rsa_2048_verify(kTestMessage, kTestMessageLen, kVectors[i].sig,
+                            kOtcryptoRsaPaddingPss, kOtcryptoHashModeSha256,
+                            &verification_result));
+    TRY_CHECK(verification_result == kHardenedBoolTrue);
+
+    otcrypto_hash_context_t hash_ctx;
+    TRY(otcrypto_hash_init(&hash_ctx, kOtcryptoHashModeSha256));
+    TRY(otcrypto_hash_update(&hash_ctx, &msg_buf));
+    otcrypto_const_word32_buf_t sig_buf = OTCRYPTO_MAKE_BUF(
+        otcrypto_const_word32_buf_t, kVectors[i].sig, kRsa2048NumWords);
+    verification_result = kHardenedBoolFalse;
+    TRY(otcrypto_rsa_hash_verify_final(&public_key, &hash_ctx,
+                                       kOtcryptoRsaPaddingPss, &sig_buf,
+                                       &verification_result));
+    TRY_CHECK(verification_result == kHardenedBoolTrue);
+
+    otcrypto_cmvp_service_indicator_t indicator = kOtcryptoCmvpNoService;
+    TRY(otcrypto_cmvp_service_indicator(&indicator));
+#ifdef FIPS_MODE
+    TRY_CHECK(indicator == (kVectors[i].fips_approved
+                                ? kOtcryptoCmvpApprovedService
+                                : kOtcryptoCmvpNotApprovedService));
+#else
+    TRY_CHECK(indicator == kOtcryptoCmvpNoService);
+#endif
+  }
+
+  // Tampering a valid custom-salt signature must fail verification.
+  uint32_t bad_sig[kRsa2048NumWords];
+  memcpy(bad_sig, kValidSignaturePssSalt222, sizeof(bad_sig));
+  bad_sig[0] ^= 1u;
+  hardened_bool_t verification_result = kHardenedBoolTrue;
+  TRY(run_rsa_2048_verify(kTestMessage, kTestMessageLen, bad_sig,
+                          kOtcryptoRsaPaddingPss, kOtcryptoHashModeSha256,
+                          &verification_result));
+  TRY_CHECK(verification_result == kHardenedBoolFalse);
+
+  return OK_STATUS();
+}
+
 OTTF_DEFINE_TEST_CONFIG();
 
 bool test_main(void) {
@@ -1031,6 +1162,7 @@ bool test_main(void) {
   EXECUTE_TEST(test_result, pkcs1v15_verify_invalid_test);
   EXECUTE_TEST(test_result, pss_verify_valid_test);
   EXECUTE_TEST(test_result, pss_verify_invalid_test);
+  EXECUTE_TEST(test_result, pss_verify_custom_salt_test);
   EXECUTE_TEST(test_result, all_hashes_sign_verify_test);
   EXECUTE_TEST(test_result, pkcs1v15_null_hash_and_raw_sign_verify_test);
   EXECUTE_TEST(test_result, run_signature_negative_tests);

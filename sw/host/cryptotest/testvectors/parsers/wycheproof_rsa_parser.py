@@ -64,7 +64,18 @@ def parse_test_vectors(raw_data, args):
             elif test["result"] == "valid":
                 test_vec["result"] = True
             elif test["result"] == "invalid":
-                test_vec["result"] = False
+                # OpenTitan RSA-PSS verification auto-detects any valid salt
+                # length (0 <= sLen <= emLen - hLen - 2), so Wycheproof vectors
+                # that only differ from the group's fixed sLen ("s_len changed
+                # to ...") are valid signatures under otcrypto.
+                if (
+                    args.operation == "verify"
+                    and args.padding == "pss"
+                    and test.get("comment", "").startswith("s_len changed to ")
+                ):
+                    test_vec["result"] = True
+                else:
+                    test_vec["result"] = False
             elif test["result"] == "acceptable":
                 # Err on the side of caution and reject "acceptable" signatures
                 test_vec["result"] = False

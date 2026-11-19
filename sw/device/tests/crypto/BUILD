@@ -1366,6 +1366,10 @@ opentitan_test(
     name = "rsa_2048_signature_functest",
     srcs = ["rsa_2048_signature_functest.c"],
     exec_env = CRYPTOTEST_EXEC_ENVS,
+    local_defines = select({
+        "//sw/device/lib/crypto/configs:hashed": ["FIPS_MODE"],
+        "//conditions:default": [],
+    }),
     verilator = verilator_params(
         timeout = "eternal",
         # This test can take > 60 minutes, so mark it manual as it shouldn't
@@ -1373,13 +1377,10 @@ opentitan_test(
         tags = ["manual"],
     ),
     deps = [
-        "//sw/device/lib/crypto/impl:config",
-        "//sw/device/lib/crypto/impl:entropy_src",
-        "//sw/device/lib/crypto/impl:integrity",
-        "//sw/device/lib/crypto/impl:rsa",
-        "//sw/device/lib/crypto/impl:sha1",
-        "//sw/device/lib/crypto/impl:sha2",
-        "//sw/device/lib/crypto/impl:sha3",
+        "//sw/device/lib/crypto",
+        "//sw/device/lib/crypto/drivers:otbn",
+        "//sw/device/lib/crypto/impl:status",
+        "//sw/device/lib/crypto/include:crypto_hdrs",
         "//sw/device/lib/runtime:log",
         "//sw/device/lib/testing:profile",
         "//sw/device/lib/testing/test_framework:ottf_main",

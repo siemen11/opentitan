@@ -85,8 +85,10 @@ status_t rsa_padding_pss_encode(const otcrypto_hash_digest_t message_digest,
 /**
  * Check if the PSS-encoded message represents the message.
  *
- * From RFC 8017, section 9.1.2. Assumes that the salt length always matches
- * the digest length of the chosen hash function.
+ * From RFC 8017, section 9.1.2. Auto-detects any salt length
+ * `0 <= sLen <= emLen - hLen - 2` from the `0x01` separator in DB, and
+ * overrides the CMVP service indicator to not approved when `sLen > hLen` in
+ * FIPS mode (FIPS 186-5, section 5.4).
  *
  * If the encoded message does not match the message digest, this function will
  * return an OK status and write `kHardenedBoolFalse` into the result buffer.
